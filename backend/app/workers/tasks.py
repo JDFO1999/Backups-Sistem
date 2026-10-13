@@ -1,0 +1,232 @@
+import json
+import logging
+from datetime import datetime, timezone
+import redis
+from croniter import croniter
+from app.core.config import settings
+from app.core.database import SessionLocal
+from app.core.security import decrypt_secret
+from app.models import (
+    BackupJob, BackupFile, Server, Database, GoogleDriveAccount, BackupSchedule
+)
+from app.services.backup_engine import BackupEngine
+from app.services.retention_service import RetentionService
+from app.workers.celery_app import celery
+
+logger = logging.getLogger(__name__)
+
+def _get_redis_client():
+    try:
+        return redis.Redis.from_url(settings.REDIS_URL)
+    except Exception:
+        return None
+
+def notify_progress(job_id: int, percent: int, step: str, extra: dict = None):
+    r = _get_redis_client()
+    payload = {
+        "job_id": job_id,
+        "progress_percent": percent,
+        "current_step": step,
+        **(extra or {})
+    }
+    if r:
+        try:
+            r.publish(f"backup_progress_{job_id}", json.dumps(payload))
+            r.publish("global_backup_progress", json.dumps(payload))
+        except Exception as e:
+            logger.debug(f"Redis publish error: {e}")
+
+def execute_backup_job_logic(job_id: int):
+    db = SessionLocal()
+    job = None
+    try:
+        job = db.query(BackupJob).filter(BackupJob.id == job_id).first()
+        if not job:
+            logger.error(f"BackupJob {job_id} no encontrado.")
+            return
+
+        job.status = "RUNNING"
+        job.started_at = datetime.now(timezone.utc)
+        job.progress_percent = 5
+        job.current_step = "Iniciando motor de backup..."
+        db.commit()
+        notify_progress(job_id, 5, "Iniciando motor de backup...")
+
+        # Get Google Drive Account
+        drive_account = db.query(GoogleDriveAccount).filter(GoogleDriveAccount.is_active == True).first()
+        if not drive_account or not drive_account.encrypted_token_json:
+            raise RuntimeError("No hay una cuenta de Google Drive conectada o autorizada.")
+
+        drive_token_json = decrypt_secret(drive_account.encrypted_token_json)
+        if not drive_token_json:
+            raise RuntimeError("Error al descifrar las credenciales de Google Drive.")
+
+        server = job.server
+        if not server:
+            raise RuntimeError("El servidor asociado al backup no existe.")
+
+        # Determine databases to backup
+        databases_to_backup = []
+        if job.schedule and job.schedule.databases:
+            databases_to_backup = job.schedule.databases
+        elif job.target_database_ids:
+            try:
+                selected_ids = json.loads(job.target_database_ids)
+                if selected_ids:
+                    databases_to_backup = db.query(Database).filter(
+                        Database.server_id == server.id,
+                        Database.id.in_(selected_ids)
+                    ).all()
+            except Exception as e:
+                logger.error(f"Error parsing target_database_ids: {e}")
+        
+        if not databases_to_backup:
+            # Fallback if no specific selection was given
+            databases_to_backup = db.query(Database).filter(Database.server_id == server.id).all()
+
+        total_dbs = len(databases_to_backup)
+        if total_dbs == 0:
+            raise RuntimeError("No se encontraron bases de datos seleccionadas para respaldar.")
+
+        total_original = 0
+        total_compressed = 0
+
+        # Checkpoints: detect already completed databases for this job
+        completed_file_map = {bf.database_id: bf for bf in job.backup_files if bf.status == "COMPLETED"}
+
+        for idx, database in enumerate(databases_to_backup):
+            db_num = idx + 1
+            base_pct = int(((idx) / total_dbs) * 90)
+
+            # If already backed up and saved to Drive in a previous run of this job, skip it!
+            if database.id in completed_file_map:
+                existing_file = completed_file_map[database.id]
+                total_original += existing_file.original_db_size_bytes or 0
+                total_compressed += existing_file.file_size_bytes or 0
+                logger.info(f"Checkpoint: Base de datos '{database.name}' ({db_num}/{total_dbs}) ya respaldada en Google Drive. Omitiendo.")
+                continue
+
+            def sub_progress(sub_pct, sub_step):
+
+                # Scale sub_pct into overall job percentage
+                overall = int(base_pct + (sub_pct / 100.0) * (90 / total_dbs))
+                job.progress_percent = overall
+                job.current_step = f"[{db_num}/{total_dbs}] {database.name}: {sub_step}"
+                db.commit()
+                notify_progress(job_id, overall, job.current_step, {
+                    "database": database.name,
+                    "db_index": db_num,
+                    "total_dbs": total_dbs
+                })
+
+            notify_progress(job_id, base_pct, f"[{db_num}/{total_dbs}] Respaldando {database.name}...")
+
+            backup_res = BackupEngine.run_database_backup(
+                server=server,
+                database=database,
+                drive_token_json=drive_token_json,
+                root_folder_name=drive_account.root_folder_name or "BACKUPS",
+                progress_callback=sub_progress
+            )
+
+            # Record BackupFile
+            b_file = BackupFile(
+                job_id=job.id,
+                database_id=database.id,
+                file_name=backup_res["file_name"],
+                file_size_bytes=backup_res["file_size_bytes"],
+                original_db_size_bytes=backup_res["original_db_size_bytes"],
+                sha256_checksum=backup_res["sha256_checksum"],
+                compression_algorithm="gzip",
+                google_drive_file_id=backup_res["google_drive_file_id"],
+                google_drive_path=backup_res["google_drive_path"],
+                status="COMPLETED"
+            )
+            db.add(b_file)
+
+            # Update database record metrics
+            database.last_backup_at = datetime.now(timezone.utc)
+            database.last_backup_size_bytes = backup_res["file_size_bytes"]
+            database.last_backup_status = "SUCCESS"
+
+            total_original += backup_res["original_db_size_bytes"]
+            total_compressed += backup_res["file_size_bytes"]
+            db.commit()
+
+            # Apply retention policy if triggered from schedule
+            if job.schedule:
+                RetentionService.apply_retention_policy(
+                    db=db,
+                    schedule=job.schedule,
+                    database_id=database.id,
+                    drive_token_json=drive_token_json
+                )
+
+        job.status = "COMPLETED"
+        job.progress_percent = 100
+        job.current_step = "Backup completado y verificado en Google Drive."
+        job.finished_at = datetime.now(timezone.utc)
+        job.total_original_size_bytes = total_original
+        job.total_compressed_size_bytes = total_compressed
+        db.commit()
+        notify_progress(job_id, 100, "Backup completado con éxito.")
+
+    except Exception as e:
+        logger.error(f"Fallo en BackupJob {job_id}: {str(e)}", exc_info=True)
+        if job:
+            job.status = "FAILED"
+            job.error_message = str(e)
+            job.finished_at = datetime.now(timezone.utc)
+            job.current_step = f"Error: {str(e)}"
+            db.commit()
+            notify_progress(job_id, job.progress_percent, f"Fallo: {str(e)}")
+    finally:
+        db.close()
+
+@celery.task(bind=True, max_retries=3)
+def run_backup_job(self, job_id: int):
+    return execute_backup_job_logic(job_id)
+
+@celery.task
+def check_scheduled_backups():
+    """Runs every minute via Celery Beat to trigger automated schedules"""
+    db = SessionLocal()
+    try:
+        now = datetime.now(timezone.utc)
+        schedules = db.query(BackupSchedule).filter(
+            BackupSchedule.is_active == True,
+            BackupSchedule.next_run_at <= now
+        ).all()
+
+        for sched in schedules:
+            logger.info(f"Disparando backup programado: {sched.name} (ID: {sched.id})")
+            
+            # Create BackupJob
+            job = BackupJob(
+                server_id=sched.server_id,
+                schedule_id=sched.id,
+                trigger_type="SCHEDULED",
+                status="PENDING",
+                progress_percent=0,
+                current_step="Encolado automáticamente por scheduler"
+            )
+            db.add(job)
+            db.commit()
+            db.refresh(job)
+
+            # Update schedule run dates
+            sched.last_run_at = now
+            try:
+                c = croniter(sched.cron_expression, now)
+                sched.next_run_at = c.get_next(datetime)
+            except Exception:
+                pass
+            db.commit()
+
+            # Launch task
+            run_backup_job.delay(job.id)
+
+    except Exception as e:
+        logger.error(f"Error verificando schedules: {e}")
+    finally:
+        db.close()
