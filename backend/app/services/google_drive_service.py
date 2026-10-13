@@ -184,13 +184,13 @@ class GoogleDriveService:
         token_json: str,
         root_folder_name: str,
         branch_code: str,
-        branch_name: str
+        branch_name: Optional[str] = None
     ) -> str:
-        """Ensures hierarchy BACKUPS/CARPETAS_SUCURSALES/{branch_code}_{branch_name} exists and returns folder id"""
-        safe_branch = f"{branch_code} - {branch_name}".strip().replace("/", "-")
+        """Ensures hierarchy BACKUPS/CARPETAS_SUCURSALES/{branch_code} exists (created if first time) and returns folder id"""
+        clean_code = branch_code.strip().upper()
         root_id = cls.find_or_create_folder(token_json, root_folder_name, parent_id=None)
         parent_id = cls.find_or_create_folder(token_json, "CARPETAS_SUCURSALES", parent_id=root_id)
-        branch_folder_id = cls.find_or_create_folder(token_json, safe_branch, parent_id=parent_id)
+        branch_folder_id = cls.find_or_create_folder(token_json, clean_code, parent_id=parent_id)
         return branch_folder_id
 
     @classmethod

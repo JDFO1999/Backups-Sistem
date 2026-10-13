@@ -31,17 +31,19 @@ class FolderBackupEngine:
         if not os.path.exists(unc_path):
             raise FileNotFoundError(f"Ruta de red inaccesible o no encontrada: {unc_path}")
 
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        safe_code = branch.code.replace(" ", "_")
-        filename = f"backup_folder_{safe_code}_{timestamp}.tar.gz"
+        # Formato de fecha y hora local para nombre de archivo: YYYY-MM-DD_HH-mm-ss
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        clean_code = branch.code.strip().upper()
+        filename = f"backup_{clean_code}_{timestamp}.tar.gz"
 
         if progress_callback:
-            progress_callback(10, f"Verificando estructura de carpetas en Google Drive para {branch.code}...")
+            progress_callback(10, f"Verificando / creando carpeta '{clean_code}' en Google Drive...")
 
+        # Si es la primera vez que se respalda esta tienda, crea la carpeta clean_code (ej. 'AK01')
         target_folder_id = GoogleDriveService.resolve_folder_backup_path(
             token_json=drive_token_json,
             root_folder_name=root_folder_name,
-            branch_code=branch.code,
+            branch_code=clean_code,
             branch_name=branch.name
         )
 
@@ -125,14 +127,14 @@ class FolderBackupEngine:
         if progress_callback:
             progress_callback(98, f"Respaldo de {branch.code} completado exitosamente en Google Drive.")
 
-        safe_branch = f"{branch.code} - {branch.name}".strip().replace("/", "-")
+        clean_code = branch.code.strip().upper()
         return {
             "file_name": filename,
             "file_size_bytes": upload_res["compressed_size_bytes"],
             "raw_size_bytes": upload_res["raw_size_bytes"],
             "sha256_checksum": upload_res["sha256_checksum"],
             "google_drive_file_id": upload_res["id"],
-            "google_drive_path": f"{root_folder_name}/CARPETAS_SUCURSALES/{safe_branch}/{filename}",
+            "google_drive_path": f"{root_folder_name}/CARPETAS_SUCURSALES/{clean_code}/{filename}",
             "files_added": producer_stats["files_added"]
         }
 

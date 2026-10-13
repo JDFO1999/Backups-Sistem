@@ -546,7 +546,7 @@ export const FolderBackupsPage: React.FC = () => {
                             <div className="space-y-1">
                               <div className="font-mono text-[10px] text-blue-400 bg-blue-950/40 px-2 py-0.5 rounded border border-blue-900/50 inline-flex items-center gap-1">
                                 <Cloud className="w-3 h-3 text-blue-400 flex-shrink-0" />
-                                <span>CARPETAS_SUCURSALES/{branch.code} - {branch.name}</span>
+                                <span>CARPETAS_SUCURSALES/{branch.code}/</span>
                               </div>
                               {branch.last_backup_at ? (
                                 <div className="flex items-center gap-2">
@@ -817,6 +817,16 @@ export const FolderBackupsPage: React.FC = () => {
                     </div>
                   </label>
                 </div>
+              </div>
+
+              <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-xl text-xs text-slate-300 space-y-1.5">
+                <p className="flex items-center gap-1.5 font-medium text-white">
+                  <Folder className="w-3.5 h-3.5 text-blue-400" />
+                  Estructura en Google Drive:
+                </p>
+                <p className="text-[11px] text-slate-400 pl-5">
+                  Al respaldar por primera vez una tienda, se crea automáticamente la carpeta con su código (ej: <code className="text-blue-400 font-mono">CARPETAS_SUCURSALES/AK01/</code>) y dentro se guardan los backups con fecha y hora (<code className="text-emerald-400 font-mono">backup_AK01_YYYY-MM-DD_HH-mm-ss.tar.gz</code>).
+                </p>
               </div>
 
               <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-300 flex items-center gap-2">
