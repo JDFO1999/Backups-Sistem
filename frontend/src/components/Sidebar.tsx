@@ -1,6 +1,6 @@
 import React from 'react';
 import { 
-  LayoutDashboard, Server, Database, Archive, 
+  LayoutDashboard, Server, Database, Archive, FolderArchive,
   Calendar, HardDrive, Users, ShieldAlert, LogOut, Activity
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -24,7 +24,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { name: 'Dashboard', id: 'dashboard', icon: LayoutDashboard },
     { name: 'Servidores', id: 'servers', icon: Server },
     { name: 'Bases de Datos', id: 'databases', icon: Database },
-    { name: 'Backups', id: 'backups', icon: Archive },
+    { name: 'Backups BD', id: 'backups', icon: Archive },
+    { name: 'Carpetas Tiendas', id: 'folders', icon: FolderArchive },
     { name: 'Programaciones', id: 'schedules', icon: Calendar },
     { name: 'Google Drive', id: 'google-drive', icon: HardDrive },
     ...(isAdmin ? [

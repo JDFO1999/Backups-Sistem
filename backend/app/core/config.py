@@ -1,4 +1,4 @@
-﻿import os
+import os
 from typing import List, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -51,6 +51,13 @@ class Settings(BaseSettings):
     # Backup & Staging Storage
     BACKUP_TEMP_DIR: str = "./backup_staging"
     MAX_STREAM_CHUNK_SIZE_MB: int = 50
+
+    # SQL Server Sucursales / Branches
+    SQLSERVER_BRANCH_HOST: str = "10.10.10.21"
+    SQLSERVER_BRANCH_PORT: int = 1433
+    SQLSERVER_BRANCH_USER: str = "Jose_Sistemas"
+    SQLSERVER_BRANCH_PASSWORD: str = "Zuleidy14*$"
+    SQLSERVER_BRANCH_DATABASE: str = "Sistemas"
 
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = [

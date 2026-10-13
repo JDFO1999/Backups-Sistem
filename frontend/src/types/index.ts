@@ -186,3 +186,63 @@ export interface DashboardStats {
   storage_history: { date: string; size_bytes: number; size_formatted: string }[];
   backups_per_day: { date: string; count: number }[];
 }
+
+export interface Branch {
+  id: number;
+  code: string;
+  name: string;
+  ip_address: string;
+  unc_path: string;
+  is_active: boolean;
+  is_online: boolean;
+  last_checked_at?: string;
+  last_backup_at?: string;
+  last_backup_size_bytes?: number;
+}
+
+export interface BranchSyncResult {
+  total: number;
+  created: number;
+  updated: number;
+  online_count: number;
+}
+
+export interface FolderBackupFile {
+  id: number;
+  job_id: number;
+  branch_id: number;
+  branch_code?: string;
+  branch_name?: string;
+  file_name: string;
+  file_size_bytes: number;
+  raw_size_bytes: number;
+  sha256_checksum?: string;
+  google_drive_file_id?: string;
+  google_drive_path?: string;
+  subfolders_included?: string;
+  status: string;
+  created_at: string;
+}
+
+export interface FolderBackupJob {
+  id: number;
+  job_name: string;
+  status: string;
+  progress_percent: number;
+  current_step: string;
+  error_message?: string;
+  total_branches: number;
+  completed_branches: number;
+  total_size_bytes: number;
+  started_at?: string;
+  finished_at?: string;
+  created_at: string;
+  backup_files?: FolderBackupFile[];
+}
+
+export interface FolderBackupCreate {
+  job_name?: string;
+  branch_ids?: number[];
+  subfolders?: string[];
+}
+

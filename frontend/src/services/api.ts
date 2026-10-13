@@ -1,4 +1,4 @@
-﻿import axios from 'axios';
+import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
@@ -32,3 +32,16 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+import { Branch, BranchSyncResult, FolderBackupJob, FolderBackupCreate } from '../types';
+
+export const foldersApi = {
+  getBranches: (refresh = false) => api.get<Branch[]>('/folders/branches', { params: { refresh } }),
+  syncBranches: () => api.post<BranchSyncResult>('/folders/branches/sync'),
+  getBranchSubfolders: (branchId: number) => api.get<string[]>(`/folders/branches/${branchId}/subfolders`),
+  createJob: (data: FolderBackupCreate) => api.post<FolderBackupJob>('/folders/jobs', data),
+  getJobs: () => api.get<FolderBackupJob[]>('/folders/jobs'),
+  getJob: (jobId: number) => api.get<FolderBackupJob>(`/folders/jobs/${jobId}`),
+  resumeJob: (jobId: number) => api.post<FolderBackupJob>(`/folders/jobs/${jobId}/resume`),
+  deleteJob: (jobId: number) => api.delete(`/folders/jobs/${jobId}`),
+};

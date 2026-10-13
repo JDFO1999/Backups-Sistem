@@ -220,3 +220,63 @@ class AuditLog(Base):
 
     user = relationship('User', back_populates='audit_logs')
 
+class Branch(Base):
+    __tablename__ = 'branches'
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(20), unique=True, index=True, nullable=False)
+    name = Column(String(150), nullable=False)
+    ip_address = Column(String(50), nullable=False)
+    unc_path = Column(String(255), nullable=False)
+    is_active = Column(Boolean, default=True)
+    is_online = Column(Boolean, default=False)
+    last_checked_at = Column(DateTime(timezone=True), nullable=True)
+    last_backup_at = Column(DateTime(timezone=True), nullable=True)
+    last_backup_size_bytes = Column(BigInteger, default=0)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    backup_files = relationship('FolderBackupFile', back_populates='branch', cascade='all, delete-orphan')
+
+class FolderBackupJob(Base):
+    __tablename__ = 'folder_backup_jobs'
+
+    id = Column(Integer, primary_key=True, index=True)
+    job_name = Column(String(150), nullable=False)
+    target_branch_ids = Column(Text, nullable=True)
+    target_subfolders = Column(Text, nullable=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    status = Column(String(30), default='PENDING', index=True)
+    progress_percent = Column(Integer, default=0)
+    current_step = Column(String(255), default='Iniciando...')
+    error_message = Column(Text, nullable=True)
+    total_branches = Column(Integer, default=0)
+    completed_branches = Column(Integer, default=0)
+    total_size_bytes = Column(BigInteger, default=0)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    user = relationship('User')
+    backup_files = relationship('FolderBackupFile', back_populates='job', cascade='all, delete-orphan')
+
+class FolderBackupFile(Base):
+    __tablename__ = 'folder_backup_files'
+
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(Integer, ForeignKey('folder_backup_jobs.id', ondelete='CASCADE'), nullable=False)
+    branch_id = Column(Integer, ForeignKey('branches.id', ondelete='CASCADE'), nullable=False)
+    file_name = Column(String(255), nullable=False)
+    file_size_bytes = Column(BigInteger, default=0)
+    raw_size_bytes = Column(BigInteger, default=0)
+    sha256_checksum = Column(String(64), nullable=True)
+    google_drive_file_id = Column(String(255), nullable=True, index=True)
+    google_drive_path = Column(String(500), nullable=True)
+    subfolders_included = Column(String(255), nullable=True)
+    status = Column(String(30), default='COMPLETED')
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    job = relationship('FolderBackupJob', back_populates='backup_files')
+    branch = relationship('Branch', back_populates='backup_files')
+
+

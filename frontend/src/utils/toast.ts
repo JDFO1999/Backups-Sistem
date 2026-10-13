@@ -1,4 +1,4 @@
-﻿import Swal from 'sweetalert2';
+import Swal from 'sweetalert2';
 
 // Toast configuration
 const Toast = Swal.mixin({
@@ -49,6 +49,8 @@ export const showToast = {
     });
   },
 };
+
+export const toast = showToast;
 
 export const showConfirm = async (
   title: string,

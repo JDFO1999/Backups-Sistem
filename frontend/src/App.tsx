@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Login } from './pages/Login';
 import { Sidebar } from './components/Sidebar';
@@ -11,6 +11,7 @@ import { SchedulesPage } from './pages/SchedulesPage';
 import { GoogleDrivePage } from './pages/GoogleDrivePage';
 import { UsersPage } from './pages/UsersPage';
 import { AuditPage } from './pages/AuditPage';
+import { FolderBackupsPage } from './pages/FolderBackupsPage';
 
 const MainLayout: React.FC = () => {
   const { isAuthenticated, loading } = useAuth();
@@ -34,7 +35,8 @@ const MainLayout: React.FC = () => {
       case 'dashboard': return 'Dashboard Principal';
       case 'servers': return 'Gestión de Servidores';
       case 'databases': return 'Selección y Estimación de Bases de Datos';
-      case 'backups': return 'Ejecución e Historial de Backups';
+      case 'backups': return 'Ejecución e Historial de Backups BD';
+      case 'folders': return 'Respaldo de Carpetas de Tiendas (Rutas UNC)';
       case 'schedules': return 'Programación Automática y Retención';
       case 'google-drive': return 'Configuración de Google Drive';
       case 'users': return 'Administración de Usuarios y Permisos';
@@ -65,6 +67,7 @@ const MainLayout: React.FC = () => {
           {currentTab === 'servers' && <ServersPage />}
           {currentTab === 'databases' && <DatabasesPage onNavigateToBackups={() => setCurrentTab('backups')} />}
           {currentTab === 'backups' && <BackupsPage />}
+          {currentTab === 'folders' && <FolderBackupsPage />}
           {currentTab === 'schedules' && <SchedulesPage />}
           {currentTab === 'google-drive' && <GoogleDrivePage />}
           {currentTab === 'users' && <UsersPage />}
