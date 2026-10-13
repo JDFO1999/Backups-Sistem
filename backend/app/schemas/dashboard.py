@@ -19,6 +19,9 @@ class DashboardStatsResponse(BaseModel):
     total_backups: int
     successful_backups: int
     failed_backups: int
+    total_db_backups: int = 0
+    total_folder_backups: int = 0
+    total_branches: int = 0
     drive_used_bytes: int
     drive_used_formatted: str
     drive_available_bytes: Optional[int] = None

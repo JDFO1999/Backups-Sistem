@@ -175,6 +175,9 @@ export interface DashboardStats {
   total_backups: number;
   successful_backups: number;
   failed_backups: number;
+  total_db_backups?: number;
+  total_folder_backups?: number;
+  total_branches?: number;
   drive_used_bytes: number;
   drive_used_formatted: string;
   drive_available_bytes?: number;

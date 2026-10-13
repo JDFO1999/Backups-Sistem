@@ -55,7 +55,7 @@ export const DashboardPage: React.FC<{ onNavigate: (tab: string) => void }> = ({
     { 
       title: 'Backups Realizados', 
       value: stats?.total_backups || 0, 
-      subtitle: `${stats?.successful_backups || 0} exitosos • ${stats?.failed_backups || 0} fallidos`,
+      subtitle: `${stats?.total_db_backups ?? 0} SQL • ${stats?.total_folder_backups ?? 0} Tiendas (${stats?.successful_backups || 0} exitosos)`,
       icon: Archive, 
       color: 'emerald', 
       onClick: () => onNavigate('backups')

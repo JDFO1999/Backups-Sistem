@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models import (
-    Server, Database, BackupJob, BackupFile, BackupSchedule, GoogleDriveAccount, AuditLog, User
+    Server, Database, BackupJob, BackupFile, BackupSchedule, GoogleDriveAccount, AuditLog, User,
+    FolderBackupJob, FolderBackupFile, Branch
 )
 from app.schemas.dashboard import (
     DashboardStatsResponse, StorageChartItem, BackupsPerDayItem
@@ -23,18 +24,44 @@ def get_dashboard_stats(
 ):
     total_servers = db.query(Server).count()
     total_databases = db.query(Database).count()
-    total_backups = db.query(BackupJob).count()
-    successful_backups = db.query(BackupJob).filter(BackupJob.status == "COMPLETED").count()
-    failed_backups = db.query(BackupJob).filter(BackupJob.status == "FAILED").count()
+    total_branches = db.query(Branch).count()
+
+    # SQL DB Backups
+    total_db_backups = db.query(BackupJob).count()
+    successful_db = db.query(BackupJob).filter(BackupJob.status == "COMPLETED").count()
+    failed_db = db.query(BackupJob).filter(BackupJob.status == "FAILED").count()
+
+    # Store Folder Backups
+    total_folder_backups = db.query(FolderBackupJob).count()
+    successful_folder = db.query(FolderBackupJob).filter(FolderBackupJob.status == "COMPLETED").count()
+    failed_folder = db.query(FolderBackupJob).filter(FolderBackupJob.status == "FAILED").count()
+
+    # Combined totals (SQL + Tiendas)
+    total_backups = total_db_backups + total_folder_backups
+    successful_backups = successful_db + successful_folder
+    failed_backups = failed_db + failed_folder
 
     drive_account = db.query(GoogleDriveAccount).filter(GoogleDriveAccount.is_active == True).first()
     drive_used_bytes = drive_account.storage_used_bytes or 0 if drive_account else 0
+    if drive_used_bytes == 0:
+        from sqlalchemy import func
+        db_f_sum = db.query(func.coalesce(func.sum(BackupFile.file_size_bytes), 0)).scalar() or 0
+        folder_f_sum = db.query(func.coalesce(func.sum(FolderBackupFile.file_size_bytes), 0)).scalar() or 0
+        drive_used_bytes = db_f_sum + folder_f_sum
+
     drive_total_bytes = drive_account.storage_total_bytes if drive_account else None
     drive_avail_bytes = (drive_total_bytes - drive_used_bytes) if drive_total_bytes else None
 
-    # Last backup
-    last_job = db.query(BackupJob).order_by(BackupJob.id.desc()).first()
-    last_backup_time = last_job.finished_at if (last_job and last_job.finished_at) else None
+    # Last backup (either SQL or Folder)
+    last_db_job = db.query(BackupJob).order_by(BackupJob.id.desc()).first()
+    last_folder_job = db.query(FolderBackupJob).order_by(FolderBackupJob.id.desc()).first()
+    
+    last_times = []
+    if last_db_job and last_db_job.finished_at:
+        last_times.append(last_db_job.finished_at)
+    if last_folder_job and last_folder_job.finished_at:
+        last_times.append(last_folder_job.finished_at)
+    last_backup_time = max(last_times) if last_times else None
 
     # Next scheduled backup
     next_sched = db.query(BackupSchedule).filter(
@@ -56,8 +83,9 @@ def get_dashboard_stats(
         day_date = (now - timedelta(days=i)).date()
         start = datetime(day_date.year, day_date.month, day_date.day, 0, 0, 0, tzinfo=timezone.utc)
         end = start + timedelta(days=1)
-        cnt = db.query(BackupJob).filter(BackupJob.created_at >= start, BackupJob.created_at < end).count()
-        backups_per_day.append(BackupsPerDayItem(date=day_date.strftime("%Y-%m-%d"), count=cnt))
+        cnt_db = db.query(BackupJob).filter(BackupJob.created_at >= start, BackupJob.created_at < end).count()
+        cnt_folder = db.query(FolderBackupJob).filter(FolderBackupJob.created_at >= start, FolderBackupJob.created_at < end).count()
+        backups_per_day.append(BackupsPerDayItem(date=day_date.strftime("%Y-%m-%d"), count=cnt_db + cnt_folder))
 
     # Storage history chart
     storage_history = []
@@ -79,6 +107,9 @@ def get_dashboard_stats(
         total_backups=total_backups,
         successful_backups=successful_backups,
         failed_backups=failed_backups,
+        total_db_backups=total_db_backups,
+        total_folder_backups=total_folder_backups,
+        total_branches=total_branches,
         drive_used_bytes=drive_used_bytes,
         drive_used_formatted=format_bytes(drive_used_bytes),
         drive_available_bytes=drive_avail_bytes,
