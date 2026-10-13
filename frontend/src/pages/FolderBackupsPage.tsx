@@ -3,7 +3,7 @@ import {
   FolderArchive, 
   RefreshCw, 
   Play, 
-  CheckCircle2, 
+  CheckCircle, 
   AlertCircle, 
   Clock, 
   HardDrive, 
@@ -14,7 +14,10 @@ import {
   FileText, 
   RotateCcw, 
   Trash2, 
-  X 
+  X,
+  ExternalLink,
+  ShieldCheck,
+  Zap
 } from 'lucide-react';
 import { foldersApi } from '../services/api';
 import { Branch, FolderBackupJob } from '../types';
@@ -200,17 +203,19 @@ export const FolderBackupsPage: React.FC = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const activeJob = jobs.find(j => j.status === 'RUNNING' || j.status === 'PENDING');
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <FolderArchive className="h-7 w-7 text-indigo-600" />
+          <h1 className="text-xl font-bold text-white flex items-center gap-2.5">
+            <FolderArchive className="h-6 w-6 text-blue-500" />
             Respaldo de Carpetas de Tiendas
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Respaldo directo de rutas de red UNC (<code className="bg-gray-100 text-indigo-700 px-1.5 py-0.5 rounded font-mono text-xs">\\IP\Sistema\aBC-Soft</code>) a Google Drive sin consumo de disco local (Zero-Disk).
+          <p className="text-xs text-slate-400 mt-1">
+            Empaquetado y subida en tiempo real de rutas de red UNC (<code className="bg-slate-900 border border-slate-800 text-blue-400 px-1.5 py-0.5 rounded font-mono text-[11px]">\\IP\Sistema\aBC-Soft</code>) directo a Google Drive (Zero-Disk en RAM).
           </p>
         </div>
 
@@ -218,89 +223,140 @@ export const FolderBackupsPage: React.FC = () => {
           <button
             onClick={handleSyncBranches}
             disabled={syncing}
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-slate-900 text-slate-300 hover:text-white rounded-lg border border-slate-800 hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50"
             title="Sincronizar sucursales desde SQL Server Sistemas.dbo.Sucursal"
           >
-            <RefreshCw className={`h-4 w-4 text-indigo-600 ${syncing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 text-blue-400 ${syncing ? 'animate-spin' : ''}`} />
             {syncing ? 'Sincronizando...' : 'Sincronizar SQL Server'}
           </button>
 
           <button
             onClick={() => fetchBranches(true)}
             disabled={refreshingPing}
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-slate-900 text-slate-300 hover:text-white rounded-lg border border-slate-800 hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50"
             title="Verificar estado de conexión en vivo (Ping SMB)"
           >
-            <Wifi className={`h-4 w-4 text-green-600 ${refreshingPing ? 'animate-spin' : ''}`} />
-            {refreshingPing ? 'Comprobando...' : 'Verificar Conexión'}
+            <Wifi className={`h-3.5 w-3.5 text-emerald-400 ${refreshingPing ? 'animate-spin' : ''}`} />
+            {refreshingPing ? 'Comprobando...' : 'Comprobar Red'}
           </button>
 
           <button
             onClick={() => openNewBackupModal()}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg shadow hover:bg-indigo-700"
+            className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-500 rounded-lg shadow-lg shadow-blue-600/20 transition-all"
           >
-            <Play className="h-4 w-4" />
+            <Play className="h-3.5 w-3.5 fill-current" />
             Nuevo Respaldo
           </button>
         </div>
       </div>
 
-      {/* Metrics Cards */}
+      {/* KPI Cards (Matches DashboardPage dark theme) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
-            <Folder className="h-6 w-6" />
+        {/* Card 1: Total Sucursales */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-all shadow-lg relative overflow-hidden group">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Sucursales</span>
+            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              <Folder className="w-4 h-4" />
+            </div>
           </div>
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase">Total Sucursales</p>
-            <h3 className="text-2xl font-bold text-gray-900">{branches.length}</h3>
-            <p className="text-xs text-gray-400">Registradas en SQL Server</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-green-50 text-green-600 rounded-lg">
-            <Wifi className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase">Sucursales en Línea</p>
-            <h3 className="text-2xl font-bold text-green-700">{onlineBranchesCount} / {branches.length}</h3>
-            <p className="text-xs text-green-600">Conexión SMB activa</p>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-white tracking-tight">{branches.length}</div>
+            <p className="text-[11px] text-slate-400 mt-1">Registradas en SQL Server</p>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-            <FolderArchive className="h-6 w-6" />
+        {/* Card 2: Sucursales Online */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-all shadow-lg relative overflow-hidden group">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Sucursales en Línea</span>
+            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <Wifi className="w-4 h-4" />
+            </div>
           </div>
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase">Tareas de Respaldo</p>
-            <h3 className="text-2xl font-bold text-gray-900">{jobs.length}</h3>
-            <p className="text-xs text-gray-400">Historial de ejecuciones</p>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-emerald-400 tracking-tight">
+              {onlineBranchesCount} / {branches.length}
+            </div>
+            <p className="text-[11px] text-emerald-400/80 mt-1 flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Conexión SMB (Puerto 445) activa
+            </p>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
-            <HardDrive className="h-6 w-6" />
+        {/* Card 3: Historial de Tareas */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-all shadow-lg relative overflow-hidden group">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Tareas Ejecutadas</span>
+            <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              <FolderArchive className="w-4 h-4" />
+            </div>
           </div>
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase">Tecnología Zero-Disk</p>
-            <h3 className="text-xl font-bold text-purple-700">0 B en Disco C:</h3>
-            <p className="text-xs text-purple-600">RAM Stream directo a Drive</p>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-white tracking-tight">{jobs.length}</div>
+            <p className="text-[11px] text-slate-400 mt-1">Historial registrado</p>
+          </div>
+        </div>
+
+        {/* Card 4: Zero-Disk Status */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-all shadow-lg relative overflow-hidden group">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Consumo Disco C:</span>
+            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <HardDrive className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-amber-400 tracking-tight">0 Bytes</div>
+            <p className="text-[11px] text-amber-400/80 mt-1 flex items-center gap-1">
+              <Zap className="w-3 h-3 text-amber-400" />
+              Zero-Disk Pipe directo a Drive
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="flex space-x-8">
+      {/* Active Job Live Progress Banner */}
+      {activeJob && (
+        <div className="bg-gradient-to-r from-blue-900/40 via-slate-900 to-slate-900 border border-blue-500/30 rounded-xl p-5 shadow-2xl space-y-3">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
+              <h3 className="text-sm font-bold text-white">
+                Respaldo de Carpetas Activo #{activeJob.id} • {activeJob.job_name}
+              </h3>
+            </div>
+            <span className="text-xs font-mono font-bold text-blue-400">
+              {activeJob.progress_percent}%
+            </span>
+          </div>
+
+          <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden p-0.5">
+            <div 
+              className="bg-blue-500 h-full rounded-full transition-all duration-300" 
+              style={{ width: `${Math.max(activeJob.progress_percent, 5)}%` }}
+            />
+          </div>
+
+          <div className="flex justify-between text-xs text-slate-300">
+            <span className="font-medium text-blue-300 truncate max-w-xl">{activeJob.current_step}</span>
+            <span className="text-slate-400 font-mono">
+              Tiendas: {activeJob.completed_branches || 0} / {activeJob.total_branches || 0}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-slate-800">
+        <nav className="flex space-x-6">
           <button
             onClick={() => setActiveTab('branches')}
-            className={`pb-4 px-1 text-sm font-medium border-b-2 flex items-center gap-2 ${
+            className={`pb-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors ${
               activeTab === 'branches'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-blue-500 text-blue-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <Folder className="h-4 w-4" />
@@ -309,14 +365,17 @@ export const FolderBackupsPage: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('history')}
-            className={`pb-4 px-1 text-sm font-medium border-b-2 flex items-center gap-2 ${
+            className={`pb-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors ${
               activeTab === 'history'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-blue-500 text-blue-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <Clock className="h-4 w-4" />
             Historial de Respaldos ({jobs.length})
+            {activeJob && (
+              <span className="h-2 w-2 rounded-full bg-blue-400 animate-ping"></span>
+            )}
           </button>
         </nav>
       </div>
@@ -325,29 +384,29 @@ export const FolderBackupsPage: React.FC = () => {
       {activeTab === 'branches' && (
         <div className="space-y-4">
           {/* Action bar and search */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-900 border border-slate-800 p-3.5 rounded-xl shadow-lg">
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
               <input
                 type="text"
                 placeholder="Buscar por código (AK01), nombre o IP..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full pl-9 pr-4 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500 placeholder:text-slate-500"
               />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={handleSelectAll}
-                className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                className="px-2.5 py-1 text-xs font-medium text-slate-300 bg-slate-800/80 hover:bg-slate-800 rounded-lg border border-slate-700/60 transition-colors"
               >
                 {selectedBranchIds.length === filteredBranches.length ? 'Desmarcar Todas' : 'Seleccionar Todas'}
               </button>
 
               <button
                 onClick={handleSelectAkBranches}
-                className="px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-md"
+                className="px-2.5 py-1 text-xs font-medium text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg border border-blue-500/20 transition-colors"
               >
                 Solo Tiendas Alkosto (AK)
               </button>
@@ -355,9 +414,9 @@ export const FolderBackupsPage: React.FC = () => {
               {selectedBranchIds.length > 0 && (
                 <button
                   onClick={() => openNewBackupModal()}
-                  className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md flex items-center gap-1.5"
+                  className="px-3 py-1 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg shadow-md shadow-blue-600/20 flex items-center gap-1.5 transition-all"
                 >
-                  <Play className="h-3.5 w-3.5" />
+                  <Play className="h-3 w-3 fill-current" />
                   Respaldar {selectedBranchIds.length} Seleccionada(s)
                 </button>
               )}
@@ -365,37 +424,38 @@ export const FolderBackupsPage: React.FC = () => {
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50 text-gray-600 font-semibold text-xs uppercase tracking-wider">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-950/60 text-slate-400 font-medium border-b border-slate-800 uppercase tracking-wider text-[11px]">
                   <tr>
                     <th className="py-3 px-4 w-12 text-center">
                       <input
                         type="checkbox"
                         checked={filteredBranches.length > 0 && selectedBranchIds.length === filteredBranches.length}
                         onChange={handleSelectAll}
-                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        className="rounded border-slate-700 bg-slate-950 text-blue-600 focus:ring-blue-500"
                       />
                     </th>
-                    <th className="py-3 px-4 text-left">Código</th>
-                    <th className="py-3 px-4 text-left">Sucursal / Nombre</th>
-                    <th className="py-3 px-4 text-left">IP y Ruta de Red UNC</th>
+                    <th className="py-3 px-4">Código</th>
+                    <th className="py-3 px-4">Sucursal / Nombre</th>
+                    <th className="py-3 px-4">Ruta de Red UNC</th>
                     <th className="py-3 px-4 text-center">Estado Red</th>
-                    <th className="py-3 px-4 text-left">Último Respaldo</th>
+                    <th className="py-3 px-4">Último Respaldo</th>
                     <th className="py-3 px-4 text-right">Acción</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 text-gray-700">
+                <tbody className="divide-y divide-slate-800/60 text-slate-300">
                   {loading ? (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-gray-500">
+                      <td colSpan={7} className="py-10 text-center text-slate-500">
+                        <RefreshCw className="w-5 h-5 animate-spin mx-auto text-blue-500 mb-2" />
                         Cargando sucursales...
                       </td>
                     </tr>
                   ) : filteredBranches.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-gray-500">
+                      <td colSpan={7} className="py-10 text-center text-slate-500">
                         No se encontraron sucursales. Haz clic en "Sincronizar SQL Server".
                       </td>
                     </tr>
@@ -405,57 +465,57 @@ export const FolderBackupsPage: React.FC = () => {
                       return (
                         <tr 
                           key={branch.id} 
-                          className={`hover:bg-gray-50 transition-colors ${isSelected ? 'bg-indigo-50/40' : ''}`}
+                          className={`hover:bg-slate-800/40 transition-colors ${isSelected ? 'bg-blue-950/25 border-l-2 border-l-blue-500' : ''}`}
                         >
                           <td className="py-3 px-4 text-center">
                             <input
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => toggleBranchSelection(branch.id)}
-                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                              className="rounded border-slate-700 bg-slate-950 text-blue-600 focus:ring-blue-500"
                             />
                           </td>
-                          <td className="py-3 px-4 font-mono font-bold text-indigo-900">
+                          <td className="py-3 px-4 font-mono font-bold text-blue-400">
                             {branch.code}
                           </td>
-                          <td className="py-3 px-4 font-medium text-gray-900">
+                          <td className="py-3 px-4 font-medium text-white">
                             {branch.name}
                           </td>
                           <td className="py-3 px-4">
-                            <div className="font-mono text-xs text-gray-800 bg-gray-50 px-2 py-1 rounded border border-gray-200 inline-block">
+                            <div className="font-mono text-[11px] text-slate-300 bg-slate-950 px-2 py-0.5 rounded border border-slate-800 inline-block">
                               {branch.unc_path}
                             </div>
                           </td>
                           <td className="py-3 px-4 text-center">
                             {branch.is_online ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                                 ONLINE
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/10 text-red-400 border border-red-500/20">
                                 <WifiOff className="h-3 w-3" />
                                 OFFLINE
                               </span>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-xs text-gray-500">
+                          <td className="py-3 px-4 text-xs">
                             {branch.last_backup_at ? (
                               <div>
-                                <p>{new Date(branch.last_backup_at).toLocaleString()}</p>
-                                <p className="font-semibold text-gray-700">{formatBytes(branch.last_backup_size_bytes || 0)}</p>
+                                <p className="text-slate-300">{new Date(branch.last_backup_at).toLocaleString('es-ES')}</p>
+                                <p className="font-mono text-[11px] font-medium text-emerald-400">{formatBytes(branch.last_backup_size_bytes || 0)}</p>
                               </div>
                             ) : (
-                              <span className="text-gray-400">Sin respaldos</span>
+                              <span className="text-slate-500">Sin respaldos</span>
                             )}
                           </td>
                           <td className="py-3 px-4 text-right">
                             <button
                               onClick={() => openNewBackupModal(branch.id)}
-                              className="px-2.5 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md inline-flex items-center gap-1"
+                              className="px-2.5 py-1 text-[11px] font-medium text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 rounded border border-blue-500/20 inline-flex items-center gap-1 transition-colors"
                               title="Respaldar esta carpeta"
                             >
-                              <Play className="h-3 w-3" />
+                              <Play className="h-3 w-3 fill-current" />
                               Respaldar
                             </button>
                           </td>
@@ -473,10 +533,10 @@ export const FolderBackupsPage: React.FC = () => {
       {/* Tab 2: History Table */}
       {activeTab === 'history' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50 text-gray-600 font-semibold text-xs uppercase tracking-wider">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-950/60 text-slate-400 font-medium border-b border-slate-800 uppercase tracking-wider text-[11px]">
                   <tr>
                     <th className="py-3 px-4 text-left">ID</th>
                     <th className="py-3 px-4 text-left">Tarea</th>
@@ -488,10 +548,10 @@ export const FolderBackupsPage: React.FC = () => {
                     <th className="py-3 px-4 text-right">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 text-gray-700">
+                <tbody className="divide-y divide-slate-800/60 text-slate-300">
                   {jobs.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-gray-500">
+                      <td colSpan={8} className="py-10 text-center text-slate-500">
                         Aún no se han ejecutado respaldos de carpetas.
                       </td>
                     </tr>
@@ -499,78 +559,78 @@ export const FolderBackupsPage: React.FC = () => {
                     jobs.map(job => {
                       const isRunning = job.status === 'RUNNING' || job.status === 'PENDING';
                       return (
-                        <tr key={job.id} className="hover:bg-gray-50">
-                          <td className="py-3 px-4 font-mono font-bold text-gray-500">#{job.id}</td>
-                          <td className="py-3 px-4 font-medium text-gray-900">{job.job_name}</td>
+                        <tr key={job.id} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3 px-4 font-mono text-slate-400 font-bold">#{job.id}</td>
+                          <td className="py-3 px-4 font-medium text-white">{job.job_name}</td>
                           <td className="py-3 px-4 text-center">
                             {job.status === 'COMPLETED' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                <CheckCircle2 className="h-3 w-3" /> Completado
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                <CheckCircle className="h-3 w-3" /> Completado
                               </span>
                             )}
                             {isRunning && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 animate-pulse">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse">
                                 <RefreshCw className="h-3 w-3 animate-spin" /> En Curso
                               </span>
                             )}
                             {job.status === 'FAILED' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-semibold bg-red-500/10 text-red-400 border border-red-500/20">
                                 <AlertCircle className="h-3 w-3" /> Fallido
                               </span>
                             )}
                             {job.status === 'INTERRUPTED' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
                                 <Clock className="h-3 w-3" /> Interrumpido
                               </span>
                             )}
                           </td>
                           <td className="py-3 px-4 min-w-[220px]">
-                            <div className="w-full bg-gray-200 rounded-full h-2 mb-1.5 overflow-hidden">
+                            <div className="w-full bg-slate-800 rounded-full h-2 mb-1.5 overflow-hidden">
                               <div 
                                 className={`h-2 rounded-full transition-all duration-300 ${
-                                  job.status === 'FAILED' ? 'bg-red-500' : isRunning ? 'bg-blue-600' : 'bg-green-600'
+                                  job.status === 'FAILED' ? 'bg-red-500' : isRunning ? 'bg-blue-500' : 'bg-emerald-500'
                                 }`} 
                                 style={{ width: `${job.progress_percent || 0}%` }}
                               ></div>
                             </div>
-                            <p className="text-xs text-gray-600 truncate max-w-xs" title={job.current_step}>
+                            <p className="text-[11px] text-slate-400 truncate max-w-xs" title={job.current_step}>
                               {job.current_step}
                             </p>
                           </td>
-                          <td className="py-3 px-4 text-center font-semibold text-gray-800">
+                          <td className="py-3 px-4 text-center font-mono font-medium text-slate-200">
                             {job.completed_branches || 0} / {job.total_branches || 0}
                           </td>
-                          <td className="py-3 px-4 font-mono font-medium text-indigo-700">
+                          <td className="py-3 px-4 font-mono font-medium text-emerald-400">
                             {formatBytes(job.total_size_bytes || 0)}
                           </td>
-                          <td className="py-3 px-4 text-xs text-gray-500">
-                            {new Date(job.created_at).toLocaleString()}
+                          <td className="py-3 px-4 text-slate-400 text-xs">
+                            {new Date(job.created_at).toLocaleString('es-ES')}
                           </td>
-                          <td className="py-3 px-4 text-right space-x-1">
+                          <td className="py-3 px-4 text-right space-x-1.5">
                             {(job.status === 'FAILED' || job.status === 'INTERRUPTED') && (
                               <button
                                 onClick={() => handleResumeJob(job.id)}
-                                className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-md"
+                                className="p-1.5 text-amber-400 hover:bg-amber-500/10 border border-amber-500/20 rounded-md transition-colors"
                                 title="Reanudar tarea con Checkpoints"
                               >
-                                <RotateCcw className="h-4 w-4" />
+                                <RotateCcw className="h-3.5 w-3.5" />
                               </button>
                             )}
 
                             <button
                               onClick={() => setSelectedJobForFiles(job)}
-                              className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-md"
+                              className="p-1.5 text-blue-400 hover:bg-blue-500/10 border border-blue-500/20 rounded-md transition-colors"
                               title="Ver archivos respaldados en Google Drive"
                             >
-                              <FileText className="h-4 w-4" />
+                              <FileText className="h-3.5 w-3.5" />
                             </button>
 
                             <button
                               onClick={() => handleDeleteJob(job.id)}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-md"
+                              className="p-1.5 text-red-400 hover:bg-red-500/10 border border-red-500/20 rounded-md transition-colors"
                               title="Eliminar tarea"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </td>
                         </tr>
@@ -584,18 +644,18 @@ export const FolderBackupsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Modal: New Folder Backup */}
+      {/* Modal: New Folder Backup (Styled Dark) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl border border-gray-200 max-w-lg w-full overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
-              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                <FolderArchive className="h-5 w-5 text-indigo-600" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 max-w-lg w-full overflow-hidden text-slate-100">
+            <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-950/40">
+              <h3 className="font-semibold text-white flex items-center gap-2">
+                <FolderArchive className="h-5 w-5 text-blue-500" />
                 Configurar Respaldo de Carpetas
               </h3>
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-md"
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -603,29 +663,29 @@ export const FolderBackupsPage: React.FC = () => {
 
             <div className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                   Nombre de la Tarea
                 </label>
                 <input
                   type="text"
                   value={jobName}
                   onChange={e => setJobName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                   Sucursales Seleccionadas ({selectedBranchIds.length})
                 </label>
-                <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200 text-xs text-gray-700 max-h-24 overflow-y-auto flex flex-wrap gap-1.5">
+                <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs text-slate-300 max-h-24 overflow-y-auto flex flex-wrap gap-1.5">
                   {selectedBranchIds.length === 0 ? (
-                    <span className="text-red-500">Ninguna sucursal seleccionada.</span>
+                    <span className="text-red-400">Ninguna sucursal seleccionada.</span>
                   ) : (
                     selectedBranchIds.map(id => {
                       const b = branches.find(x => x.id === id);
                       return (
-                        <span key={id} className="bg-white px-2 py-1 rounded border border-gray-300 font-mono font-medium">
+                        <span key={id} className="bg-slate-900 text-blue-300 px-2 py-0.5 rounded border border-slate-800 font-mono text-[11px]">
                           {b ? `${b.code} (${b.name})` : id}
                         </span>
                       );
@@ -635,56 +695,62 @@ export const FolderBackupsPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase mb-2">
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
                   Alcance del Respaldo (Filtro de Subcarpetas)
                 </label>
                 <div className="space-y-2">
-                  <label className="flex items-start gap-2.5 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
+                  <label className={`flex items-start gap-3 p-3 rounded-xl border transition-colors cursor-pointer ${
+                    folderScope === 'critical' ? 'bg-blue-950/20 border-blue-500/40' : 'bg-slate-950/50 border-slate-800 hover:bg-slate-800/40'
+                  }`}>
                     <input
                       type="radio"
                       name="folderScope"
                       checked={folderScope === 'critical'}
                       onChange={() => setFolderScope('critical')}
-                      className="mt-0.5 text-indigo-600 focus:ring-indigo-500"
+                      className="mt-0.5 text-blue-600 focus:ring-blue-500"
                     />
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Subcarpetas Críticas (Recomendado)</p>
-                      <p className="text-xs text-gray-500">
-                        Respalda únicamente <code className="text-indigo-600 font-mono">Data, Datos, DataSQL, Formularios</code>. Omite archivos gigantescos como Cierre_POS para máxima rapidez.
+                      <p className="text-xs font-semibold text-white">Subcarpetas Críticas (Recomendado)</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Respalda únicamente <code className="text-blue-400 font-mono">Data, Datos, DataSQL, Formularios</code>. Omite archivos gigantescos como Cierre_POS para máxima rapidez.
                       </p>
                     </div>
                   </label>
 
-                  <label className="flex items-start gap-2.5 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
+                  <label className={`flex items-start gap-3 p-3 rounded-xl border transition-colors cursor-pointer ${
+                    folderScope === 'all' ? 'bg-blue-950/20 border-blue-500/40' : 'bg-slate-950/50 border-slate-800 hover:bg-slate-800/40'
+                  }`}>
                     <input
                       type="radio"
                       name="folderScope"
                       checked={folderScope === 'all'}
                       onChange={() => setFolderScope('all')}
-                      className="mt-0.5 text-indigo-600 focus:ring-indigo-500"
+                      className="mt-0.5 text-blue-600 focus:ring-blue-500"
                     />
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Directorio Completo (Todo aBC-Soft)</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs font-semibold text-white">Directorio Completo (Todo aBC-Soft)</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
                         Empaqueta absolutamente todos los archivos y subdirectorios de la tienda (puede pesar más de 100 GB).
                       </p>
                     </div>
                   </label>
 
-                  <label className="flex items-start gap-2.5 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
+                  <label className={`flex items-start gap-3 p-3 rounded-xl border transition-colors cursor-pointer ${
+                    folderScope === 'custom' ? 'bg-blue-950/20 border-blue-500/40' : 'bg-slate-950/50 border-slate-800 hover:bg-slate-800/40'
+                  }`}>
                     <input
                       type="radio"
                       name="folderScope"
                       checked={folderScope === 'custom'}
                       onChange={() => setFolderScope('custom')}
-                      className="mt-0.5 text-indigo-600 focus:ring-indigo-500"
+                      className="mt-0.5 text-blue-600 focus:ring-blue-500"
                     />
                     <div className="w-full">
-                      <p className="text-sm font-medium text-gray-900">Personalizado</p>
+                      <p className="text-xs font-semibold text-white">Personalizado</p>
                       {folderScope === 'custom' && (
-                        <div className="mt-2 flex flex-wrap gap-2">
+                        <div className="mt-2 flex flex-wrap gap-1.5">
                           {commonSubfolders.map(sf => (
-                            <label key={sf} className="inline-flex items-center gap-1.5 text-xs bg-gray-100 px-2 py-1 rounded cursor-pointer">
+                            <label key={sf} className="inline-flex items-center gap-1.5 text-[11px] bg-slate-900 border border-slate-800 px-2 py-1 rounded cursor-pointer text-slate-300">
                               <input
                                 type="checkbox"
                                 checked={customSubfolders.includes(sf)}
@@ -692,7 +758,7 @@ export const FolderBackupsPage: React.FC = () => {
                                   if (e.target.checked) setCustomSubfolders([...customSubfolders, sf]);
                                   else setCustomSubfolders(customSubfolders.filter(x => x !== sf));
                                 }}
-                                className="rounded text-indigo-600"
+                                className="rounded text-blue-600"
                               />
                               {sf}
                             </label>
@@ -704,16 +770,17 @@ export const FolderBackupsPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-3 bg-indigo-50 rounded-lg text-xs text-indigo-800">
-                🚀 <strong>Zero-Disk Streaming:</strong> Los archivos se transmitirán en bloques de memoria RAM directamente hacia Google Drive en formato <code>.tar.gz</code> sin ocupar espacio en tu disco C:.
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-300 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                <span><strong>Zero-Disk Streaming:</strong> Los datos viajan por RAM directo a Google Drive en <code className="font-mono text-blue-200">.tar.gz</code> sin consumir disco local C:.</span>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 p-4 border-t border-gray-200 bg-gray-50">
+            <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-950/40">
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="px-3.5 py-1.5 text-xs text-slate-400 hover:text-white rounded-lg border border-slate-800 hover:bg-slate-800 transition-colors"
               >
                 Cancelar
               </button>
@@ -721,9 +788,9 @@ export const FolderBackupsPage: React.FC = () => {
                 type="button"
                 onClick={handleStartBackup}
                 disabled={startingJob || selectedBranchIds.length === 0}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg shadow-lg shadow-blue-600/20 disabled:opacity-50 flex items-center gap-2 transition-all"
               >
-                {startingJob ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                {startingJob ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5 fill-current" />}
                 {startingJob ? 'Iniciando...' : 'Iniciar Respaldo en Drive'}
               </button>
             </div>
@@ -731,76 +798,74 @@ export const FolderBackupsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Modal: View Files in Job */}
+      {/* Modal: View Files in Job (Styled Dark) */}
       {selectedJobForFiles && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl border border-gray-200 max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden text-slate-100">
+            <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-950/40">
               <div>
-                <h3 className="font-semibold text-gray-900">
-                  Archivos en Google Drive - #{selectedJobForFiles.id} {selectedJobForFiles.job_name}
+                <h3 className="font-semibold text-white text-sm">
+                  Archivos en Google Drive • #{selectedJobForFiles.id} {selectedJobForFiles.job_name}
                 </h3>
-                <p className="text-xs text-gray-500">
-                  Total Respaldado: {formatBytes(selectedJobForFiles.total_size_bytes || 0)}
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Total Respaldado: <span className="font-mono text-emerald-400 font-semibold">{formatBytes(selectedJobForFiles.total_size_bytes || 0)}</span>
                 </p>
               </div>
               <button 
                 onClick={() => setSelectedJobForFiles(null)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-md"
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="p-4 overflow-y-auto flex-1">
+            <div className="p-4 overflow-y-auto flex-1 space-y-2.5">
               {(!selectedJobForFiles.backup_files || selectedJobForFiles.backup_files.length === 0) ? (
-                <p className="text-center py-6 text-sm text-gray-500">
+                <p className="text-center py-8 text-xs text-slate-500">
                   No hay archivos completados aún para esta tarea.
                 </p>
               ) : (
-                <div className="space-y-3">
-                  {selectedJobForFiles.backup_files.map(file => (
-                    <div 
-                      key={file.id} 
-                      className="p-3.5 bg-gray-50 rounded-lg border border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded font-mono">
-                            {file.branch_code}
-                          </span>
-                          <span className="text-sm font-semibold text-gray-900 font-mono">
-                            {file.file_name}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1 font-mono">
-                          Drive: {file.google_drive_path}
-                        </p>
-                        {file.sha256_checksum && (
-                          <p className="text-[11px] text-gray-400 font-mono mt-0.5">
-                            SHA-256: {file.sha256_checksum.slice(0, 24)}...
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="text-right">
-                        <span className="font-bold text-sm text-gray-900">
-                          {formatBytes(file.file_size_bytes)}
+                selectedJobForFiles.backup_files.map(file => (
+                  <div 
+                    key={file.id} 
+                    className="p-3.5 bg-slate-950/60 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 hover:border-slate-700 transition-colors"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded font-mono">
+                          {file.branch_code}
                         </span>
-                        <p className="text-xs text-green-600 font-medium flex items-center gap-1 justify-end mt-0.5">
-                          <CheckCircle2 className="h-3 w-3" /> Subido a Drive
-                        </p>
+                        <span className="text-xs font-semibold text-white font-mono">
+                          {file.file_name}
+                        </span>
                       </div>
+                      <p className="text-[11px] text-slate-400 mt-1 font-mono">
+                        Drive: {file.google_drive_path}
+                      </p>
+                      {file.sha256_checksum && (
+                        <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                          SHA-256: {file.sha256_checksum.slice(0, 24)}...
+                        </p>
+                      )}
                     </div>
-                  ))}
-                </div>
+
+                    <div className="text-right">
+                      <span className="font-mono font-bold text-xs text-emerald-400">
+                        {formatBytes(file.file_size_bytes)}
+                      </span>
+                      <p className="text-[10px] text-emerald-400/90 font-medium flex items-center gap-1 justify-end mt-0.5">
+                        <CheckCircle className="h-3 w-3" /> Subido a Drive
+                      </p>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
 
-            <div className="p-3 bg-gray-50 border-t border-gray-200 text-right">
+            <div className="p-3 bg-slate-950/40 border-t border-slate-800 text-right">
               <button
                 onClick={() => setSelectedJobForFiles(null)}
-                className="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="px-4 py-1.5 text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
               >
                 Cerrar
               </button>
