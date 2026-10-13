@@ -187,7 +187,7 @@ class GoogleDriveService:
         branch_name: str
     ) -> str:
         """Ensures hierarchy BACKUPS/CARPETAS_SUCURSALES/{branch_code}_{branch_name} exists and returns folder id"""
-        safe_branch = f"{branch_code}_{branch_name}".replace(" ", "_").replace("(", "").replace(")", "").replace("/", "_")
+        safe_branch = f"{branch_code} - {branch_name}".strip().replace("/", "-")
         root_id = cls.find_or_create_folder(token_json, root_folder_name, parent_id=None)
         parent_id = cls.find_or_create_folder(token_json, "CARPETAS_SUCURSALES", parent_id=root_id)
         branch_folder_id = cls.find_or_create_folder(token_json, safe_branch, parent_id=parent_id)

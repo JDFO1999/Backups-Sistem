@@ -246,3 +246,13 @@ export interface FolderBackupCreate {
   subfolders?: string[];
 }
 
+
+export interface FolderBackupStats {
+  total_branches: number;
+  online_branches: number;
+  total_jobs: number;
+  total_drive_bytes: number;
+  total_raw_bytes: number;
+  disk_c_used_bytes: number;
+  storage_mode: string;
+}

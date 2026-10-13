@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   FolderArchive, 
   RefreshCw, 
@@ -17,10 +17,11 @@ import {
   X,
   ExternalLink,
   ShieldCheck,
-  Zap
+  Zap,
+  Cloud
 } from 'lucide-react';
 import { foldersApi } from '../services/api';
-import { Branch, FolderBackupJob } from '../types';
+import { Branch, FolderBackupJob, FolderBackupStats } from '../types';
 import { toast } from '../utils/toast';
 
 export const FolderBackupsPage: React.FC = () => {
@@ -31,6 +32,8 @@ export const FolderBackupsPage: React.FC = () => {
   const [syncing, setSyncing] = useState<boolean>(false);
   const [refreshingPing, setRefreshingPing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const [stats, setStats] = useState<FolderBackupStats | null>(null);
 
   // Selection
   const [selectedBranchIds, setSelectedBranchIds] = useState<number[]>([]);
@@ -68,9 +71,18 @@ export const FolderBackupsPage: React.FC = () => {
     }
   };
 
+  const fetchStats = async () => {
+    try {
+      const res = await foldersApi.getStats();
+      setStats(res.data);
+    } catch (err: any) {
+      console.error('Error al cargar estadísticas de respaldo:', err);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
-    await Promise.all([fetchBranches(false), fetchJobs()]);
+    await Promise.all([fetchBranches(false), fetchJobs(), fetchStats()]);
     setLoading(false);
   };
 
@@ -85,6 +97,7 @@ export const FolderBackupsPage: React.FC = () => {
 
     const interval = setInterval(() => {
       fetchJobs();
+      fetchStats();
     }, 3000);
 
     return () => clearInterval(interval);
@@ -195,6 +208,28 @@ export const FolderBackupsPage: React.FC = () => {
 
   const onlineBranchesCount = branches.filter(b => b.is_online).length;
 
+  // Tamaño total almacenado en Google Drive por respaldos de sucursales
+  const totalDriveSizeBytes = useMemo(() => {
+    if (stats?.total_drive_bytes !== undefined && stats.total_drive_bytes > 0) {
+      return stats.total_drive_bytes;
+    }
+    // Suma de archivos completados o trabajos
+    let sum = 0;
+    jobs.forEach(j => {
+      if (j.backup_files && j.backup_files.length > 0) {
+        j.backup_files.forEach(f => {
+          if (f.status === 'COMPLETED') sum += (f.file_size_bytes || 0);
+        });
+      } else if (j.status === 'COMPLETED') {
+        sum += (j.total_size_bytes || 0);
+      }
+    });
+    if (sum === 0) {
+      sum = branches.reduce((acc, b) => acc + (b.last_backup_size_bytes || 0), 0);
+    }
+    return sum;
+  }, [stats, jobs, branches]);
+
   const formatBytes = (bytes: number) => {
     if (!bytes || bytes === 0) return '0 B';
     const k = 1024;
@@ -299,20 +334,28 @@ export const FolderBackupsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Card 4: Zero-Disk Status */}
+        {/* Card 4: Total Almacenado en Google Drive */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-all shadow-lg relative overflow-hidden group">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Consumo Disco C:</span>
-            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              <HardDrive className="w-4 h-4" />
+            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Total en Google Drive</span>
+            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <Cloud className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-amber-400 tracking-tight">0 Bytes</div>
-            <p className="text-[11px] text-amber-400/80 mt-1 flex items-center gap-1">
-              <Zap className="w-3 h-3 text-amber-400" />
-              Zero-Disk Pipe directo a Drive
-            </p>
+            <div className="text-2xl font-bold text-emerald-400 tracking-tight">
+              {formatBytes(totalDriveSizeBytes)}
+            </div>
+            <div className="mt-1 space-y-0.5">
+              <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                Guardado en Drive por sucursal
+              </p>
+              <p className="text-[10px] text-amber-400/90 flex items-center gap-1 font-medium">
+                <Zap className="w-3 h-3 text-amber-400 inline" />
+                Consumo Disco C: 0 Bytes (Zero-Disk)
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -441,7 +484,7 @@ export const FolderBackupsPage: React.FC = () => {
                     <th className="py-3 px-4">Sucursal / Nombre</th>
                     <th className="py-3 px-4">Ruta de Red UNC</th>
                     <th className="py-3 px-4 text-center">Estado Red</th>
-                    <th className="py-3 px-4">Último Respaldo</th>
+                    <th className="py-3 px-4">Destino Drive / Respaldo</th>
                     <th className="py-3 px-4 text-right">Acción</th>
                   </tr>
                 </thead>
@@ -500,14 +543,20 @@ export const FolderBackupsPage: React.FC = () => {
                             )}
                           </td>
                           <td className="py-3 px-4 text-xs">
-                            {branch.last_backup_at ? (
-                              <div>
-                                <p className="text-slate-300">{new Date(branch.last_backup_at).toLocaleString('es-ES')}</p>
-                                <p className="font-mono text-[11px] font-medium text-emerald-400">{formatBytes(branch.last_backup_size_bytes || 0)}</p>
+                            <div className="space-y-1">
+                              <div className="font-mono text-[10px] text-blue-400 bg-blue-950/40 px-2 py-0.5 rounded border border-blue-900/50 inline-flex items-center gap-1">
+                                <Cloud className="w-3 h-3 text-blue-400 flex-shrink-0" />
+                                <span>CARPETAS_SUCURSALES/{branch.code} - {branch.name}</span>
                               </div>
-                            ) : (
-                              <span className="text-slate-500">Sin respaldos</span>
-                            )}
+                              {branch.last_backup_at ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-slate-400 text-[11px]">{new Date(branch.last_backup_at).toLocaleString('es-ES')}</span>
+                                  <span className="font-mono text-[11px] font-bold text-emerald-400">({formatBytes(branch.last_backup_size_bytes || 0)})</span>
+                                </div>
+                              ) : (
+                                <p className="text-[11px] text-slate-500">Sin respaldos previos</p>
+                              )}
+                            </div>
                           </td>
                           <td className="py-3 px-4 text-right">
                             <button

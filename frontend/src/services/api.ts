@@ -33,9 +33,10 @@ api.interceptors.response.use(
   }
 );
 
-import { Branch, BranchSyncResult, FolderBackupJob, FolderBackupCreate } from '../types';
+import { Branch, BranchSyncResult, FolderBackupJob, FolderBackupCreate, FolderBackupStats } from '../types';
 
 export const foldersApi = {
+  getStats: () => api.get<FolderBackupStats>('/folders/stats'),
   getBranches: (refresh = false) => api.get<Branch[]>('/folders/branches', { params: { refresh } }),
   syncBranches: () => api.post<BranchSyncResult>('/folders/branches/sync'),
   getBranchSubfolders: (branchId: number) => api.get<string[]>(`/folders/branches/${branchId}/subfolders`),

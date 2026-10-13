@@ -64,3 +64,12 @@ class FolderBackupJobResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class FolderBackupStatsResponse(BaseModel):
+    total_branches: int
+    online_branches: int
+    total_jobs: int
+    total_drive_bytes: int
+    total_raw_bytes: int
+    disk_c_used_bytes: int = 0
+    storage_mode: str = 'Zero-Disk RAM Streaming directo a Drive por Sucursal'

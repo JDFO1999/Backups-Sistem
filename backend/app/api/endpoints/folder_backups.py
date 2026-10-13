@@ -12,7 +12,8 @@ from app.schemas.folder_backup import (
     BranchSyncResponse,
     FolderBackupCreate,
     FolderBackupJobResponse,
-    FolderBackupFileResponse
+    FolderBackupFileResponse,
+    FolderBackupStatsResponse
 )
 from app.services.branch_service import BranchService
 from app.services.folder_backup_engine import execute_folder_backup_job_logic
@@ -23,7 +24,8 @@ router = APIRouter()
 def _format_folder_job(job: FolderBackupJob) -> FolderBackupJobResponse:
     files_res = []
     for f in (job.backup_files or []):
-        files_res.append(FolderBackupFileResponse(
+        files_res.append(FolderBackupFileResponse,
+    FolderBackupStatsResponse(
             id=f.id,
             job_id=f.job_id,
             branch_id=f.branch_id,
@@ -53,6 +55,34 @@ def _format_folder_job(job: FolderBackupJob) -> FolderBackupJobResponse:
         finished_at=job.finished_at,
         created_at=job.created_at,
         backup_files=files_res
+    )
+
+
+@router.get("/stats", response_model=FolderBackupStatsResponse)
+def get_folder_backup_stats(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Return aggregated stats of folder backups stored in Google Drive"""
+    from sqlalchemy import func
+    total_branches = db.query(Branch).count()
+    online_branches = db.query(Branch).filter(Branch.is_online == True).count()
+    total_jobs = db.query(FolderBackupJob).count()
+    
+    total_drive_bytes = db.query(func.coalesce(func.sum(FolderBackupFile.file_size_bytes), 0))\
+        .filter(FolderBackupFile.status == 'COMPLETED').scalar() or 0
+        
+    total_raw_bytes = db.query(func.coalesce(func.sum(FolderBackupFile.raw_size_bytes), 0))\
+        .filter(FolderBackupFile.status == 'COMPLETED').scalar() or 0
+        
+    return FolderBackupStatsResponse(
+        total_branches=total_branches,
+        online_branches=online_branches,
+        total_jobs=total_jobs,
+        total_drive_bytes=int(total_drive_bytes),
+        total_raw_bytes=int(total_raw_bytes),
+        disk_c_used_bytes=0,
+        storage_mode="Zero-Disk RAM Streaming directo a Drive por Sucursal"
     )
 
 @router.get("/branches", response_model=List[BranchResponse])

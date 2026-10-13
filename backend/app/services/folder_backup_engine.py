@@ -125,13 +125,14 @@ class FolderBackupEngine:
         if progress_callback:
             progress_callback(98, f"Respaldo de {branch.code} completado exitosamente en Google Drive.")
 
+        safe_branch = f"{branch.code} - {branch.name}".strip().replace("/", "-")
         return {
             "file_name": filename,
             "file_size_bytes": upload_res["compressed_size_bytes"],
             "raw_size_bytes": upload_res["raw_size_bytes"],
             "sha256_checksum": upload_res["sha256_checksum"],
             "google_drive_file_id": upload_res["id"],
-            "google_drive_path": f"{root_folder_name}/CARPETAS_SUCURSALES/{branch.code}/{filename}",
+            "google_drive_path": f"{root_folder_name}/CARPETAS_SUCURSALES/{safe_branch}/{filename}",
             "files_added": producer_stats["files_added"]
         }
 
