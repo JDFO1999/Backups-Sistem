@@ -527,9 +527,9 @@ export const SchedulesPage: React.FC = () => {
       {/* Modal Nueva Programación */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl p-6 shadow-2xl space-y-5 my-8 max-h-[90vh] overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
             {/* Modal Header */}
-            <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-10">
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-blue-500" />
                 <h3 className="text-base font-bold text-white">Nueva Programación de Backup</h3>
@@ -542,7 +542,8 @@ export const SchedulesPage: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleCreateSchedule} className="space-y-4">
+            <form onSubmit={handleCreateSchedule} className="flex flex-col flex-1 overflow-hidden">
+            <div className="p-6 space-y-4 flex-1 overflow-y-auto">
               {/* Paso 1: Tipo de Respaldo */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-2">
@@ -1037,7 +1038,8 @@ export const SchedulesPage: React.FC = () => {
               </div>
 
               {/* Botones de Acción */}
-              <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
+              </div>
+            <div className="px-6 py-3.5 flex justify-end gap-2 border-t border-slate-800 bg-slate-950/80 backdrop-blur sticky bottom-0 z-10">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}

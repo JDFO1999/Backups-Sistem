@@ -1,4 +1,6 @@
-﻿from datetime import timedelta
+import time
+from collections import defaultdict
+from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from app.core.config import settings
@@ -17,27 +19,61 @@ from app.services.audit_service import log_audit
 
 router = APIRouter()
 
+# In-memory brute force protection: {client_ip: [timestamp1, timestamp2, ...]}
+_failed_login_attempts = defaultdict(list)
+_MAX_FAILED_ATTEMPTS = 5
+_ATTEMPT_WINDOW_SECONDS = 300  # 5 minutes
+_LOCKOUT_SECONDS = 300
+
 @router.post("/login", response_model=Token)
 def login(
     login_data: LoginRequest,
     request: Request,
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.email == login_data.email).first()
     client_ip = get_client_ip(request)
+    now = time.time()
+
+    # Clean old attempts outside the window
+    recent_attempts = [ts for ts in _failed_login_attempts[client_ip] if now - ts < _ATTEMPT_WINDOW_SECONDS]
+    _failed_login_attempts[client_ip] = recent_attempts
+
+    # Check lockout
+    if len(recent_attempts) >= _MAX_FAILED_ATTEMPTS:
+        earliest = recent_attempts[0]
+        remaining = int(_LOCKOUT_SECONDS - (now - earliest))
+        if remaining > 0:
+            log_audit(
+                db, action="LOGIN_RATE_LIMITED",
+                user_email=login_data.email,
+                ip_address=client_ip,
+                status="BLOCKED",
+                details={"reason": "Exceso de intentos fallidos", "lockout_seconds": remaining}
+            )
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Demasiados intentos fallidos. Por seguridad, intente nuevamente en {remaining} segundos."
+            )
+
+    user = db.query(User).filter(User.email == login_data.email).first()
 
     if not user or not verify_password(login_data.password, user.hashed_password):
+        _failed_login_attempts[client_ip].append(now)
+        attempts_left = max(0, _MAX_FAILED_ATTEMPTS - len(_failed_login_attempts[client_ip]))
         log_audit(
             db, action="LOGIN_FAILED",
             user_email=login_data.email,
             ip_address=client_ip,
             status="FAILURE",
-            details={"reason": "Credenciales inválidas"}
+            details={"reason": "Credenciales inválidas", "attempts_remaining": attempts_left}
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Correo electrónico o contraseña incorrectos."
+            detail=f"Correo electrónico o contraseña incorrectos. Intentos restantes: {attempts_left}."
         )
+
+    # Success: reset failed attempts
+    _failed_login_attempts.pop(client_ip, None)
 
     if not user.is_active:
         log_audit(

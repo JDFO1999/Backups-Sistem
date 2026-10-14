@@ -453,7 +453,7 @@ export const BackupsPage: React.FC = () => {
       {selectedJob && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-10">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Archive className="w-5 h-5 text-blue-500" />
                 Detalles del Backup #{selectedJob.id}
@@ -542,8 +542,8 @@ export const BackupsPage: React.FC = () => {
       {/* MODAL: RESTAURACIÓN ASISTIDA */}
       {restoreModalFile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-5">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-10">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <RotateCcw className="w-5 h-5 text-blue-400" />
                 Restauración Asistida de Base de Datos
@@ -557,6 +557,7 @@ export const BackupsPage: React.FC = () => {
               </button>
             </div>
 
+            <div className="p-6 space-y-4 flex-1 overflow-y-auto">
             {/* Source Backup Overview Card */}
             <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs space-y-2">
               <div className="text-slate-400 font-medium">Archivo de Respaldo Origen:</div>
@@ -637,8 +638,9 @@ export const BackupsPage: React.FC = () => {
               )}
             </div>
 
+            </div>
             {/* Modal Actions */}
-            <div className="pt-3 flex justify-end gap-3 border-t border-slate-800">
+            <div className="px-6 py-3.5 flex justify-end gap-3 border-t border-slate-800 bg-slate-950/80 backdrop-blur sticky bottom-0 z-10">
               <button
                 type="button"
                 onClick={() => setRestoreModalFile(null)}

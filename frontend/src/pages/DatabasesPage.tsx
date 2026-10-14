@@ -325,8 +325,8 @@ export const DatabasesPage: React.FC<{ onNavigateToBackups: () => void }> = ({ o
       {/* Modal Discover Databases */}
       {isDiscoverModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-10">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <Layers className="w-4 h-4 text-blue-500" />
                 Detectar Bases de Datos ({currentServer?.os_type || 'Servidor'})
@@ -334,7 +334,8 @@ export const DatabasesPage: React.FC<{ onNavigateToBackups: () => void }> = ({ o
               <button onClick={() => setIsDiscoverModalOpen(false)} className="text-slate-400 text-sm">✕</button>
             </div>
 
-            <form onSubmit={handleDiscoverDatabases} className="space-y-3">
+            <form onSubmit={handleDiscoverDatabases} className="flex flex-col flex-1 overflow-hidden">
+            <div className="p-6 space-y-3 flex-1 overflow-y-auto">
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">Motor</label>
                 <select
@@ -407,7 +408,8 @@ export const DatabasesPage: React.FC<{ onNavigateToBackups: () => void }> = ({ o
                 />
               </div>
 
-              <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
+              </div>
+            <div className="px-6 py-3.5 flex justify-end gap-2 border-t border-slate-800 bg-slate-950/80 backdrop-blur sticky bottom-0 z-10">
                 <button
                   type="button"
                   onClick={() => setIsDiscoverModalOpen(false)}

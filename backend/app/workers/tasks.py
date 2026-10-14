@@ -172,6 +172,17 @@ def execute_backup_job_logic(job_id: int):
         db.commit()
         notify_progress(job_id, 100, "Backup completado con éxito.")
 
+        try:
+            from app.services.alert_service import AlertService
+            AlertService.send_alert(
+                title=f"Backup de Base de Datos Exitoso #{job.id}",
+                message=f"Servidor: {job.server.name if job.server else 'N/A'}. Tamaño: {round(total_compressed/(1024*1024), 2)} MB.",
+                severity="SUCCESS",
+                details={"Job ID": job.id, "Servidor": job.server.name if job.server else "N/A"}
+            )
+        except Exception:
+            pass
+
     except Exception as e:
         logger.error(f"Fallo en BackupJob {job_id}: {str(e)}", exc_info=True)
         if job:
@@ -181,6 +192,17 @@ def execute_backup_job_logic(job_id: int):
             job.current_step = f"Error: {str(e)}"
             db.commit()
             notify_progress(job_id, job.progress_percent, f"Fallo: {str(e)}")
+
+            try:
+                from app.services.alert_service import AlertService
+                AlertService.send_alert(
+                    title=f"Fallo en Backup de Base de Datos #{job.id}",
+                    message=f"Servidor: {job.server.name if job.server else 'N/A'}. Error: {e}",
+                    severity="ERROR",
+                    details={"Job ID": job.id, "Error": str(e)[:200]}
+                )
+            except Exception:
+                pass
     finally:
         db.close()
 

@@ -1,4 +1,4 @@
-﻿import os
+import os
 import json
 import logging
 import tarfile
@@ -289,6 +289,17 @@ def execute_folder_backup_job_logic(job_id: int) -> None:
         job.finished_at = datetime.now(timezone.utc)
         db.commit()
 
+        try:
+            from app.services.alert_service import AlertService
+            AlertService.send_alert(
+                title=f"Respaldo de Carpetas Exitoso #{job.id}",
+                message=f"La tarea '{job.job_name}' completó {job.completed_branches}/{job.total_branches} sucursales.",
+                severity="SUCCESS",
+                details={"Tarea": job.job_name, "Sucursales": f"{job.completed_branches}/{job.total_branches}", "Tamaño Total": f"{round((job.total_size_bytes or 0)/(1024*1024*1024), 2)} GB"}
+            )
+        except Exception:
+            pass
+
     except Exception as e:
         logger.error(f"Error general en FolderBackupJob #{job_id}: {e}")
         if job:
@@ -296,5 +307,16 @@ def execute_folder_backup_job_logic(job_id: int) -> None:
             job.error_message = str(e)
             job.finished_at = datetime.now(timezone.utc)
             db.commit()
+
+            try:
+                from app.services.alert_service import AlertService
+                AlertService.send_alert(
+                    title=f"Fallo en Respaldo de Carpetas #{job.id}",
+                    message=f"La tarea '{job.job_name}' falló: {e}",
+                    severity="ERROR",
+                    details={"Tarea": job.job_name, "Error": str(e)[:200]}
+                )
+            except Exception:
+                pass
     finally:
         db.close()

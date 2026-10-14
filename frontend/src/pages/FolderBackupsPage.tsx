@@ -741,8 +741,8 @@ export const FolderBackupsPage: React.FC = () => {
       {/* Modal: New Folder Backup (Styled Dark) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 max-w-lg w-full overflow-hidden text-slate-100">
-            <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-950/40">
+          <div className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden text-slate-100">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-800 bg-slate-950/90 backdrop-blur sticky top-0 z-10">
               <h3 className="font-semibold text-white flex items-center gap-2">
                 <FolderArchive className="h-5 w-5 text-blue-500" />
                 Configurar Respaldo de Carpetas
@@ -755,7 +755,7 @@ export const FolderBackupsPage: React.FC = () => {
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="p-4 sm:p-5 space-y-4 flex-1 overflow-y-auto">
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                   Nombre de la Tarea
@@ -880,7 +880,7 @@ export const FolderBackupsPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-950/40">
+            <div className="flex items-center justify-end gap-2 p-3.5 sm:p-4 border-t border-slate-800 bg-slate-950/90 backdrop-blur sticky bottom-0 z-10">
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
@@ -906,7 +906,7 @@ export const FolderBackupsPage: React.FC = () => {
       {selectedJobForFiles && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
           <div className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden text-slate-100">
-            <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-950/40">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-800 bg-slate-950/90 backdrop-blur sticky top-0 z-10">
               <div>
                 <h3 className="font-semibold text-white text-sm">
                   Archivos en Google Drive • #{selectedJobForFiles.id} {selectedJobForFiles.job_name}
@@ -1031,7 +1031,7 @@ export const FolderBackupsPage: React.FC = () => {
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4 flex-1 overflow-y-auto">
               <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl space-y-2 text-xs">
                 <div className="flex justify-between items-center text-slate-300">
                   <span>Estado actual:</span>
@@ -1093,7 +1093,7 @@ export const FolderBackupsPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-end p-4 border-t border-slate-800 bg-slate-950/40">
+            <div className="flex items-center justify-end p-3.5 sm:p-4 border-t border-slate-800 bg-slate-950/90 backdrop-blur sticky bottom-0 z-10">
               <button
                 type="button"
                 onClick={() => setJobToResume(null)}

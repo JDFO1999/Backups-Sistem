@@ -52,12 +52,15 @@ class Settings(BaseSettings):
     BACKUP_TEMP_DIR: str = "./backup_staging"
     MAX_STREAM_CHUNK_SIZE_MB: int = 50
 
-    # SQL Server Sucursales / Branches
-    SQLSERVER_BRANCH_HOST: str = "10.10.10.21"
+    # SQL Server Sucursales / Branches (Loaded strictly from .env)
+    SQLSERVER_BRANCH_HOST: Optional[str] = None
     SQLSERVER_BRANCH_PORT: int = 1433
-    SQLSERVER_BRANCH_USER: str = "Jose_Sistemas"
-    SQLSERVER_BRANCH_PASSWORD: str = "Zuleidy14*$"
-    SQLSERVER_BRANCH_DATABASE: str = "Sistemas"
+    SQLSERVER_BRANCH_USER: Optional[str] = None
+    SQLSERVER_BRANCH_PASSWORD: Optional[str] = None
+    SQLSERVER_BRANCH_DATABASE: Optional[str] = "Sistemas"
+
+    # External Notifications / Webhook (Discord, Slack, MS Teams, etc.)
+    ALERT_WEBHOOK_URL: Optional[str] = None
 
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = [

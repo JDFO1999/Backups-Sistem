@@ -38,6 +38,27 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[RECOVERY] Error comprobando tareas pendientes: {e}")
 
+    # Clean orphaned files in staging directory (> 24 hours old)
+    try:
+        import os, time
+        staging_dir = settings.BACKUP_TEMP_DIR
+        if os.path.exists(staging_dir):
+            now_ts = time.time()
+            cleaned_count = 0
+            for root, dirs, files in os.walk(staging_dir):
+                for fname in files:
+                    fpath = os.path.join(root, fname)
+                    try:
+                        if os.path.isfile(fpath) and (now_ts - os.path.getmtime(fpath) > 86400):
+                            os.remove(fpath)
+                            cleaned_count += 1
+                    except Exception:
+                        pass
+            if cleaned_count > 0:
+                print(f"[STAGING CLEANUP] Se eliminaron {cleaned_count} archivo(s) residuales huérfanos (>24h).")
+    except Exception as e:
+        print(f"[STAGING CLEANUP] Error comprobando staging: {e}")
+
     # Launch automated scheduler daemon thread
     import threading
     from app.workers.tasks import start_scheduler_loop
@@ -55,6 +76,16 @@ app = FastAPI(
     description="Sistema Profesional de Gestión y Automatización de Backups a Google Drive",
     lifespan=lifespan
 )
+
+# Security Headers Middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 # CORS Middleware
 app.add_middleware(
