@@ -76,8 +76,11 @@ class FolderBackupEngine:
                     else:
                         target_dirs.append((unc_path, ""))
 
+                    excludes_set = set(x.lower() for x in (exclude_subfolders or []))
                     for root_dir, arc_prefix in target_dirs:
                         for dirpath, dirnames, filenames in os.walk(root_dir):
+                            if excludes_set:
+                                dirnames[:] = [d for d in dirnames if d.lower() not in excludes_set]
                             rel = os.path.relpath(dirpath, root_dir)
                             arc_dir = os.path.normpath(os.path.join(arc_prefix, rel)) if rel != "." else (arc_prefix or "")
                             
@@ -232,6 +235,20 @@ def execute_folder_backup_job_logic(job_id: int) -> None:
                     progress_callback=sub_progress
                 )
 
+                # Ensure no duplicate file record for this branch in this job
+                existing_old = db.query(FolderBackupFile).filter(
+                    FolderBackupFile.job_id == job.id,
+                    FolderBackupFile.branch_id == branch.id
+                ).all()
+                for old_f in existing_old:
+                    if old_f.google_drive_file_id and old_f.google_drive_file_id != res["google_drive_file_id"]:
+                        try:
+                            GoogleDriveService.delete_file(token_json, old_f.google_drive_file_id)
+                        except Exception:
+                            pass
+                    db.delete(old_f)
+                db.flush()
+
                 b_file = FolderBackupFile(
                     job_id=job.id,
                     branch_id=branch.id,
@@ -245,12 +262,18 @@ def execute_folder_backup_job_logic(job_id: int) -> None:
                     status="COMPLETED"
                 )
                 db.add(b_file)
+                db.flush()
 
                 branch.last_backup_at = datetime.now(timezone.utc)
                 branch.last_backup_size_bytes = res["file_size_bytes"]
-                total_compressed_bytes += res["file_size_bytes"]
-                job.completed_branches = (job.completed_branches or 0) + 1
-                job.total_size_bytes = total_compressed_bytes
+                
+                # Accurately compute job total size and count from current files
+                all_job_files = db.query(FolderBackupFile).filter(
+                    FolderBackupFile.job_id == job.id,
+                    FolderBackupFile.status == "COMPLETED"
+                ).all()
+                job.completed_branches = len(all_job_files)
+                job.total_size_bytes = sum((f.file_size_bytes or 0) for f in all_job_files)
                 db.commit()
 
             except Exception as be:
