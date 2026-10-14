@@ -23,9 +23,9 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Ignorar errores de contraseña incorrecta en confirmación de logout o login
+      // Ignorar errores de contraseña incorrecta en confirmación de logout, login o desbloqueo
       const url = error.config?.url || '';
-      if (url.includes('/auth/login') || url.includes('/auth/logout')) {
+      if (url.includes('/auth/login') || url.includes('/auth/logout') || url.includes('/auth/verify-unlock')) {
         return Promise.reject(error);
       }
 

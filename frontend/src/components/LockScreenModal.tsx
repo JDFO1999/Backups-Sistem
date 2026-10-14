@@ -1,16 +1,18 @@
-﻿import React, { useState } from 'react';
-import { Lock, ArrowRight, LogOut } from 'lucide-react';
+import React, { useState } from 'react';
+import { Lock, ArrowRight, LogOut, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const LockScreenModal: React.FC = () => {
   const { user, unlockSession, logout } = useAuth();
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
   const [error, setError] = useState('');
 
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password) {
+    const cleanPass = password.trim();
+    if (!cleanPass) {
       setError('Por favor ingrese su contraseña.');
       return;
     }
@@ -18,7 +20,7 @@ export const LockScreenModal: React.FC = () => {
     setError('');
 
     try {
-      await unlockSession(password);
+      await unlockSession(cleanPass);
       setPassword('');
     } catch (err: any) {
       setError(err.message || 'Contraseña incorrecta.');
@@ -78,14 +80,22 @@ export const LockScreenModal: React.FC = () => {
                 <Lock className="w-4 h-4" />
               </div>
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 autoFocus
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Ingresa tu contraseña"
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                className="w-full pl-10 pr-10 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+                title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
             {error && (
               <p className="text-xs text-red-400 mt-1.5 font-medium">{error}</p>
