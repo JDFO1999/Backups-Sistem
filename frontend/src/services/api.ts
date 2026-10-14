@@ -43,6 +43,6 @@ export const foldersApi = {
   createJob: (data: FolderBackupCreate) => api.post<FolderBackupJob>('/folders/jobs', data),
   getJobs: () => api.get<FolderBackupJob[]>('/folders/jobs'),
   getJob: (jobId: number) => api.get<FolderBackupJob>(`/folders/jobs/${jobId}`),
-  resumeJob: (jobId: number) => api.post<FolderBackupJob>(`/folders/jobs/${jobId}/resume`),
+  resumeJob: (jobId: number, restartFresh: boolean = false) => api.post<FolderBackupJob>(`/folders/jobs/${jobId}/resume`, null, { params: { restart_fresh: restartFresh } }),
   deleteJob: (jobId: number) => api.delete(`/folders/jobs/${jobId}`),
 };

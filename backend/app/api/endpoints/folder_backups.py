@@ -209,7 +209,8 @@ def get_folder_backup_job(
 @router.post("/jobs/{job_id}/resume", response_model=FolderBackupJobResponse)
 def resume_folder_backup_job(
     job_id: int,
-    request: Request,
+    restart_fresh: bool = False,
+    request: Request = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
@@ -217,9 +218,46 @@ def resume_folder_backup_job(
     if not job:
         raise HTTPException(status_code=404, detail="Tarea no encontrada.")
 
+    drive_account = db.query(GoogleDriveAccount).filter(GoogleDriveAccount.is_active == True).first()
+    token_json = None
+    if drive_account and drive_account.encrypted_token_json:
+        from app.core.security import decrypt_secret
+        token_json = decrypt_secret(drive_account.encrypted_token_json)
+
+    if restart_fresh:
+        # Opción 2: Borrar archivos incompletos en Google Drive y resetear progreso
+        if token_json:
+            from app.services.google_drive_service import GoogleDriveService
+            for bf in job.backup_files:
+                if bf.google_drive_file_id:
+                    try:
+                        GoogleDriveService.delete_file(token_json, bf.google_drive_file_id)
+                    except Exception as de:
+                        logger.warning(f"Error borrando archivo {bf.file_name} en Drive: {de}")
+
+            if job.target_branch_ids:
+                try:
+                    b_ids = json.loads(job.target_branch_ids)
+                    branches = db.query(Branch).filter(Branch.id.in_(b_ids)).all()
+                    for b in branches:
+                        GoogleDriveService.clean_branch_folder_in_drive(token_json, drive_account.root_folder_name or "BACKUPS", b.code)
+                except Exception as ce:
+                    logger.warning(f"Error limpiando carpetas de sucursales en Drive: {ce}")
+
+        # Limpiar registros locales de la tarea
+        for bf in list(job.backup_files):
+            db.delete(bf)
+
+        job.completed_branches = 0
+        job.total_size_bytes = 0
+        job.progress_percent = 0
+        job.current_step = "Reiniciando respaldo desde cero (incompletos eliminados de Drive)..."
+    else:
+        # Opción 1: Continuar por donde quedó (aprovechando checkpoints)
+        job.current_step = "Reanudando tarea de respaldo desde el último punto de control..."
+
     job.status = "PENDING"
     job.error_message = None
-    job.current_step = "Reanudando tarea de respaldo de carpetas..."
     db.commit()
     db.refresh(job)
 
@@ -228,11 +266,12 @@ def resume_folder_backup_job(
     t.start()
 
     log_audit(
-        db, action="RESUME_FOLDER_BACKUP",
+        db, action="RESTART_FOLDER_BACKUP" if restart_fresh else "RESUME_FOLDER_BACKUP",
         user=user,
         resource_type="FOLDER_BACKUP_JOB",
         resource_id=job.id,
-        ip_address=get_client_ip(request)
+        ip_address=get_client_ip(request) if request else "127.0.0.1",
+        details={"restart_fresh": restart_fresh}
     )
 
     return _format_folder_job(job)

@@ -48,6 +48,10 @@ export const FolderBackupsPage: React.FC = () => {
   // Modal View Files
   const [selectedJobForFiles, setSelectedJobForFiles] = useState<FolderBackupJob | null>(null);
 
+  // Modal Resume/Restart Options for Interrupted or Failed Jobs
+  const [jobToResume, setJobToResume] = useState<FolderBackupJob | null>(null);
+  const [resumingJob, setResumingJob] = useState<boolean>(false);
+
   const commonSubfolders = ['Data', 'Datos', 'DataSQL', 'Formularios', 'Cierre_POS', 'Run', 'Informes'];
 
   const fetchBranches = async (refreshPing = false) => {
@@ -179,13 +183,23 @@ export const FolderBackupsPage: React.FC = () => {
     }
   };
 
-  const handleResumeJob = async (jobId: number) => {
+  const handleExecuteResume = async (jobId: number, restartFresh: boolean) => {
     try {
-      await foldersApi.resumeJob(jobId);
-      toast.success('Reanudando tarea de respaldo...');
+      setResumingJob(true);
+      await foldersApi.resumeJob(jobId, restartFresh);
+      toast.success(
+        restartFresh
+          ? 'Iniciando respaldo limpio desde 0% (incompletos eliminados de Drive)...'
+          : 'Reanudando tarea de respaldo desde el último punto de control...'
+      );
+      setJobToResume(null);
       await fetchJobs();
+      await fetchStats();
+      setActiveTab('history');
     } catch (err: any) {
-      toast.error('Error al reanudar: ' + (err.response?.data?.detail || err.message));
+      toast.error('Error: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setResumingJob(false);
     }
   };
 
@@ -658,9 +672,9 @@ export const FolderBackupsPage: React.FC = () => {
                           <td className="py-3 px-4 text-right space-x-1.5">
                             {(job.status === 'FAILED' || job.status === 'INTERRUPTED') && (
                               <button
-                                onClick={() => handleResumeJob(job.id)}
+                                onClick={() => setJobToResume(job)}
                                 className="p-1.5 text-amber-400 hover:bg-amber-500/10 border border-amber-500/20 rounded-md transition-colors"
-                                title="Reanudar tarea con Checkpoints"
+                                title="Gestionar reanudación o reinicio limpio"
                               >
                                 <RotateCcw className="h-3.5 w-3.5" />
                               </button>
@@ -932,6 +946,107 @@ export const FolderBackupsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Modal: Opciones para Tarea Interrumpida / Fallida */}
+      {jobToResume && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 max-w-xl w-full flex flex-col overflow-hidden text-slate-100 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-950/40">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <RotateCcw className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-white text-sm">
+                    Reanudar o Reiniciar Respaldo #{jobToResume.id}
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">{jobToResume.job_name}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setJobToResume(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl space-y-2 text-xs">
+                <div className="flex justify-between items-center text-slate-300">
+                  <span>Estado actual:</span>
+                  <span className="font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                    {jobToResume.status}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-slate-300">
+                  <span>Progreso registrado:</span>
+                  <span className="font-mono text-white font-semibold">{jobToResume.progress_percent}% ({jobToResume.completed_branches} de {jobToResume.total_branches} tiendas completadas)</span>
+                </div>
+                <p className="text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
+                  <span className="text-slate-500">Último paso:</span> {jobToResume.current_step}
+                </p>
+              </div>
+
+              <p className="text-xs text-slate-300">
+                Selecciona cómo deseas proceder con esta tarea:
+              </p>
+
+              <div className="grid grid-cols-1 gap-3">
+                {/* Opción 1: Continuar por donde quedó */}
+                <div 
+                  onClick={() => !resumingJob && handleExecuteResume(jobToResume.id, false)}
+                  className="p-4 bg-slate-950/40 hover:bg-slate-800/50 border border-slate-800 hover:border-emerald-500/50 rounded-xl cursor-pointer transition-all group flex items-start gap-3.5"
+                >
+                  <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mt-0.5 group-hover:bg-emerald-500/20 transition-colors">
+                    <Play className="w-4 h-4 fill-current" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-xs font-semibold text-white group-hover:text-emerald-300 transition-colors flex items-center justify-between">
+                      <span>Opción 1: Continuar por donde quedó (Reanudar)</span>
+                      {resumingJob && <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />}
+                    </h4>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Mantiene las sucursales ya completadas en Google Drive y continúa con las pendientes mediante Checkpoints.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Opción 2: Borrar en Drive y empezar de nuevo */}
+                <div 
+                  onClick={() => !resumingJob && handleExecuteResume(jobToResume.id, true)}
+                  className="p-4 bg-slate-950/40 hover:bg-slate-800/50 border border-slate-800 hover:border-rose-500/50 rounded-xl cursor-pointer transition-all group flex items-start gap-3.5"
+                >
+                  <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 mt-0.5 group-hover:bg-rose-500/20 transition-colors">
+                    <Trash2 className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-xs font-semibold text-white group-hover:text-rose-300 transition-colors flex items-center justify-between">
+                      <span>Opción 2: Borrar incompleto en Google Drive y reiniciar de cero</span>
+                      {resumingJob && <RefreshCw className="w-3.5 h-3.5 animate-spin text-rose-400" />}
+                    </h4>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Elimina cualquier archivo parcial o incompleto en Google Drive, limpia el progreso a 0% y empieza la transmisión totalmente limpia.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end p-4 border-t border-slate-800 bg-slate-950/40">
+              <button
+                type="button"
+                onClick={() => setJobToResume(null)}
+                disabled={resumingJob}
+                className="px-4 py-1.5 text-xs text-slate-400 hover:text-white rounded-lg border border-slate-800 hover:bg-slate-800 transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

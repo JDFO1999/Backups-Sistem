@@ -249,6 +249,25 @@ class GoogleDriveService:
 
 
     @classmethod
+    def clean_branch_folder_in_drive(cls, token_json: str, root_folder_name: str, branch_code: str) -> int:
+        """Finds and deletes any backup files inside the branch folder in Google Drive to start completely fresh"""
+        try:
+            drive = cls.get_drive_client(token_json)
+            folder_id = cls.resolve_folder_backup_path(token_json, root_folder_name, branch_code)
+            query = f"'{folder_id}' in parents and trashed = false"
+            res = cls.execute_with_retry(lambda: drive.files().list(q=query, fields='files(id, name)').execute())
+            files = res.get('files', [])
+            count = 0
+            for f in files:
+                drive.files().delete(fileId=f['id']).execute()
+                count += 1
+            logger.info(f"Limpieza en Google Drive: eliminados {count} archivo(s) en carpeta de {branch_code}")
+            return count
+        except Exception as e:
+            logger.warning(f"Error limpiando carpeta de {branch_code} en Google Drive: {e}")
+            return 0
+
+    @classmethod
     def delete_file(cls, token_json: str, file_id: str) -> bool:
         try:
             drive = cls.get_drive_client(token_json)
