@@ -15,15 +15,25 @@ async def lifespan(app: FastAPI):
     # Auto-recovery: detect jobs interrupted by server restart
     try:
         from app.core.database import SessionLocal
-        from app.models import BackupJob
+        from app.models import BackupJob, FolderBackupJob
         db = SessionLocal()
-        interrupted = db.query(BackupJob).filter(BackupJob.status == "RUNNING").all()
-        for j in interrupted:
+        
+        # Recover database backup jobs
+        interrupted_db = db.query(BackupJob).filter(BackupJob.status.in_(["RUNNING", "PENDING"])).all()
+        for j in interrupted_db:
             j.status = "INTERRUPTED"
-            j.current_step = "Interrumpido por reinicio o corte de conexión. Listo para reanudar."
-        if interrupted:
+            j.current_step = "Interrumpido por reinicio o apagado de PC/servidor. Listo para reanudar."
+            
+        # Recover folder backup jobs
+        interrupted_folder = db.query(FolderBackupJob).filter(FolderBackupJob.status.in_(["RUNNING", "PENDING"])).all()
+        for fj in interrupted_folder:
+            fj.status = "INTERRUPTED"
+            fj.current_step = "Interrumpido por reinicio o apagado de PC/servidor. Listo para reanudar."
+            
+        total_rec = len(interrupted_db) + len(interrupted_folder)
+        if total_rec > 0:
             db.commit()
-            print(f"[RECOVERY] Se detectaron {len(interrupted)} tarea(s) interrumpida(s). Marcadas como INTERRUPTED.")
+            print(f"[RECOVERY] Se detectaron {total_rec} tarea(s) interrumpida(s) (DB: {len(interrupted_db)}, Carpetas: {len(interrupted_folder)}). Marcadas como INTERRUPTED.")
         db.close()
     except Exception as e:
         print(f"[RECOVERY] Error comprobando tareas pendientes: {e}")
