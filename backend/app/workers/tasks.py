@@ -229,11 +229,17 @@ def trigger_single_schedule(db, sched: BackupSchedule, user_id=None):
         subfolders = None
         if sched.folder_scope == 'critical':
             subfolders = ['Data', 'Datos', 'DataSQL', 'Formularios']
-        elif sched.target_subfolders:
-            try:
-                subfolders = json.loads(sched.target_subfolders)
-            except Exception:
-                pass
+        elif sched.folder_scope == 'custom':
+            if sched.target_subfolders:
+                if isinstance(sched.target_subfolders, list):
+                    subfolders = sched.target_subfolders
+                else:
+                    try:
+                        subfolders = json.loads(sched.target_subfolders)
+                    except Exception:
+                        subfolders = None
+        elif sched.folder_scope == 'all':
+            subfolders = None
 
         job = FolderBackupJob(
             job_name=f"[Prog] {sched.name} - {now.strftime('%Y-%m-%d %H:%M')}",

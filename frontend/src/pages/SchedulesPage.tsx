@@ -31,10 +31,14 @@ export const SchedulesPage: React.FC = () => {
   const [selectedDbIds, setSelectedDbIds] = useState<number[]>([]);
   
   // Folder Schedule State
-  const [folderScope, setFolderScope] = useState<'critical' | 'all'>('critical');
+  const [folderScope, setFolderScope] = useState<'critical' | 'all' | 'custom'>('critical');
+  const [customSubfolders, setCustomSubfolders] = useState<string[]>(['Data', 'Datos', 'DataSQL', 'Formularios']);
+  const [newSubfolderInput, setNewSubfolderInput] = useState('');
   const [branchSelectionMode, setBranchSelectionMode] = useState<'all' | 'ak_only' | 'custom'>('all');
   const [selectedBranchIds, setSelectedBranchIds] = useState<number[]>([]);
   const [branchSearch, setBranchSearch] = useState('');
+
+  const commonSubfolders = ['Data', 'Datos', 'DataSQL', 'Formularios', 'Cierre_POS', 'Run', 'Informes'];
 
   // Frequency State
   const [frequencyMode, setFrequencyMode] = useState<FrequencyMode>('daily_time');
@@ -150,8 +154,16 @@ export const SchedulesPage: React.FC = () => {
 
     let targetBranchIds: number[] | null = null;
     if (scheduleType === 'FOLDER') {
+      if (folderScope === 'custom' && customSubfolders.length === 0) {
+        showToast.warning('Debe seleccionar o agregar al menos una subcarpeta');
+        setSubmitting(false);
+        return;
+      }
+
       if (branchSelectionMode === 'ak_only') {
-        targetBranchIds = branches.filter(b => b.branch_code.toUpperCase().startsWith('AK')).map(b => b.id);
+        targetBranchIds = branches
+          .filter(b => ((b.code || (b as any).branch_code || '')).toUpperCase().startsWith('AK'))
+          .map(b => b.id);
       } else if (branchSelectionMode === 'custom') {
         if (selectedBranchIds.length === 0) {
           showToast.warning('Seleccione al menos una tienda para respaldar');
@@ -173,6 +185,7 @@ export const SchedulesPage: React.FC = () => {
         database_ids: scheduleType === 'DATABASE' ? selectedDbIds : [],
         target_branch_ids: targetBranchIds || undefined,
         folder_scope: folderScope,
+        target_subfolders: folderScope === 'custom' ? customSubfolders : undefined,
         cron_expression: computedCron,
         compression_type: 'GZIP',
         retention_count: retentionCount,
@@ -191,6 +204,29 @@ export const SchedulesPage: React.FC = () => {
     }
   };
 
+  const handleAddCustomSubfolder = () => {
+    const trimmed = newSubfolderInput.trim();
+    if (!trimmed) return;
+    if (customSubfolders.some(s => s.toLowerCase() === trimmed.toLowerCase())) {
+      showToast.warning(`La subcarpeta "${trimmed}" ya está en la lista`);
+      return;
+    }
+    setCustomSubfolders([...customSubfolders, trimmed]);
+    setNewSubfolderInput('');
+  };
+
+  const handleRemoveCustomSubfolder = (subfolder: string) => {
+    setCustomSubfolders(customSubfolders.filter(s => s !== subfolder));
+  };
+
+  const toggleSubfolder = (subfolder: string) => {
+    if (customSubfolders.includes(subfolder)) {
+      setCustomSubfolders(customSubfolders.filter(s => s !== subfolder));
+    } else {
+      setCustomSubfolders([...customSubfolders, subfolder]);
+    }
+  };
+
   const resetForm = () => {
     setName('');
     setScheduleType('DATABASE');
@@ -200,8 +236,11 @@ export const SchedulesPage: React.FC = () => {
     setSelectedDays([1, 2, 3, 4, 5]);
     setCustomCron('0 23 * * *');
     setFolderScope('critical');
+    setCustomSubfolders(['Data', 'Datos', 'DataSQL', 'Formularios']);
+    setNewSubfolderInput('');
     setBranchSelectionMode('all');
     setSelectedBranchIds([]);
+    setBranchSearch('');
     setRetentionCount(7);
     setRetentionDays(30);
   };
@@ -267,7 +306,11 @@ export const SchedulesPage: React.FC = () => {
   const filteredBranches = useMemo(() => {
     if (!branchSearch.trim()) return branches;
     const q = branchSearch.toLowerCase();
-    return branches.filter(b => b.branch_code.toLowerCase().includes(q) || b.branch_name.toLowerCase().includes(q));
+    return branches.filter(b => {
+      const bCode = (b.code || (b as any).branch_code || '').toLowerCase();
+      const bName = (b.name || (b as any).branch_name || '').toLowerCase();
+      return bCode.includes(q) || bName.includes(q);
+    });
   }, [branches, branchSearch]);
 
   const toggleDay = (day: number) => {
@@ -419,10 +462,19 @@ export const SchedulesPage: React.FC = () => {
                       <h3 className="font-semibold text-white text-sm line-clamp-1">{sched.name}</h3>
                       <p className="text-xs text-slate-400 mt-0.5">
                         {isFolder 
-                          ? `${sched.folder_scope === 'critical' ? 'Carpetas Críticas' : 'Respaldo Completo'} (${sched.target_branch_ids && sched.target_branch_ids.length > 0 ? `${sched.target_branch_ids.length} Tiendas` : 'Todas las tiendas'})`
+                          ? `${sched.folder_scope === 'critical' ? 'Carpetas Críticas' : sched.folder_scope === 'custom' ? 'Subcarpetas Personalizadas' : 'Respaldo Completo'} (${sched.target_branch_ids && sched.target_branch_ids.length > 0 ? `${sched.target_branch_ids.length} Tiendas` : 'Todas las tiendas'})`
                           : `${sched.server_name || 'Servidor SQL'} (${sched.database_ids && sched.database_ids.length > 0 ? `${sched.database_ids.length} BDs` : 'Todas las BDs'})`
                         }
                       </p>
+                      {isFolder && sched.folder_scope === 'custom' && sched.target_subfolders && sched.target_subfolders.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {sched.target_subfolders.map((sf: string) => (
+                            <span key={sf} className="font-mono text-[10px] bg-purple-500/10 text-purple-300 px-1.5 py-0.5 rounded border border-purple-500/20">
+                              {sf}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <button
@@ -687,43 +739,171 @@ export const SchedulesPage: React.FC = () => {
 
                   {/* Alcance de subcarpetas */}
                   <div>
-                    <label className="block text-xs text-slate-400 mb-1.5">Alcance de Subcarpetas</label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="block text-xs text-slate-400 font-medium">Alcance de Subcarpetas</label>
+                      {folderScope === 'custom' && (
+                        <span className="text-[11px] text-purple-400 font-medium">
+                          {customSubfolders.length} subcarpeta(s) seleccionada(s)
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <div
                         onClick={() => setFolderScope('critical')}
-                        className={`p-2 rounded-lg border text-xs cursor-pointer ${
+                        className={`p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
                           folderScope === 'critical'
-                            ? 'bg-purple-600/10 border-purple-500 text-white'
-                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                            ? 'bg-purple-600/20 border-purple-500 text-white shadow-sm'
+                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
                         }`}
                       >
-                        <span className="font-semibold block text-slate-200">Carpetas Críticas</span>
-                        <span className="text-[10px] text-slate-400">Cajas, DB, Scripts, Logs (Rápido)</span>
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold block text-slate-200">Carpetas Críticas</span>
+                          {folderScope === 'critical' && <Check className="w-3.5 h-3.5 text-purple-400" />}
+                        </div>
+                        <span className="text-[10px] text-slate-400 block mt-1">Data, Datos, DataSQL, Formularios (Rápido)</span>
                       </div>
+
                       <div
                         onClick={() => setFolderScope('all')}
-                        className={`p-2 rounded-lg border text-xs cursor-pointer ${
+                        className={`p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
                           folderScope === 'all'
-                            ? 'bg-purple-600/10 border-purple-500 text-white'
-                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                            ? 'bg-purple-600/20 border-purple-500 text-white shadow-sm'
+                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
                         }`}
                       >
-                        <span className="font-semibold block text-slate-200">Respaldo Completo</span>
-                        <span className="text-[10px] text-slate-400">Todas las subcarpetas compartidas</span>
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold block text-slate-200">Respaldo Completo</span>
+                          {folderScope === 'all' && <Check className="w-3.5 h-3.5 text-purple-400" />}
+                        </div>
+                        <span className="text-[10px] text-slate-400 block mt-1">Todo el directorio aBC-Soft</span>
+                      </div>
+
+                      <div
+                        onClick={() => setFolderScope('custom')}
+                        className={`p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
+                          folderScope === 'custom'
+                            ? 'bg-purple-600/20 border-purple-500 text-white shadow-sm'
+                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold block text-slate-200">Personalizada</span>
+                          {folderScope === 'custom' && <Check className="w-3.5 h-3.5 text-purple-400" />}
+                        </div>
+                        <span className="text-[10px] text-slate-400 block mt-1">Elegir subcarpetas específicas</span>
                       </div>
                     </div>
+
+                    {/* Selector de subcarpetas personalizadas */}
+                    {folderScope === 'custom' && (
+                      <div className="mt-2.5 p-3 bg-slate-900/90 border border-purple-500/30 rounded-xl space-y-2.5">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[11px] font-medium text-slate-300">Subcarpetas habituales:</span>
+                          <div className="flex gap-2 text-[11px]">
+                            <button
+                              type="button"
+                              onClick={() => setCustomSubfolders(Array.from(new Set([...customSubfolders, ...commonSubfolders])))}
+                              className="text-purple-400 hover:underline cursor-pointer"
+                            >
+                              Marcar habituales
+                            </button>
+                            <span className="text-slate-600">|</span>
+                            <button
+                              type="button"
+                              onClick={() => setCustomSubfolders([])}
+                              className="text-slate-400 hover:underline cursor-pointer"
+                            >
+                              Limpiar
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Chips de subcarpetas habituales */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {commonSubfolders.map(sf => {
+                            const isSelected = customSubfolders.includes(sf);
+                            return (
+                              <button
+                                type="button"
+                                key={sf}
+                                onClick={() => toggleSubfolder(sf)}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-purple-600 text-white border border-purple-500 shadow-sm'
+                                    : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                                }`}
+                              >
+                                {isSelected ? <Check className="w-3 h-3 text-white" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-600" />}
+                                {sf}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Input para agregar subcarpeta personalizada adicional */}
+                        <div className="pt-2 border-t border-slate-800 flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Añadir otra subcarpeta (ej. Informes, Logs)..."
+                            value={newSubfolderInput}
+                            onChange={e => setNewSubfolderInput(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddCustomSubfolder();
+                              }
+                            }}
+                            className="flex-1 px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddCustomSubfolder}
+                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                          >
+                            Agregar
+                          </button>
+                        </div>
+
+                        {/* Lista de subcarpetas activas */}
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {customSubfolders.length === 0 ? (
+                            <span className="text-amber-400 text-[11px] flex items-center gap-1">
+                              <AlertCircle className="w-3.5 h-3.5" /> Debe seleccionar o escribir al menos una subcarpeta.
+                            </span>
+                          ) : (
+                            customSubfolders.map(sf => (
+                              <span
+                                key={sf}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-mono bg-purple-500/10 border border-purple-500/20 text-purple-300"
+                              >
+                                <span>{sf}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveCustomSubfolder(sf)}
+                                  className="text-slate-400 hover:text-red-400 font-bold cursor-pointer"
+                                  title={`Quitar ${sf}`}
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Selección de tiendas */}
                   <div>
-                    <label className="block text-xs text-slate-400 mb-1.5">Selección de Sucursales / Tiendas</label>
+                    <label className="block text-xs text-slate-400 mb-1.5 font-medium">Selección de Sucursales / Tiendas</label>
                     <div className="grid grid-cols-3 gap-2 mb-2">
                       <button
                         type="button"
                         onClick={() => setBranchSelectionMode('all')}
-                        className={`py-1.5 px-2 rounded-lg text-xs font-medium border cursor-pointer ${
+                        className={`py-1.5 px-2 rounded-lg text-xs font-medium border cursor-pointer transition-all ${
                           branchSelectionMode === 'all'
-                            ? 'bg-purple-600/20 border-purple-500 text-purple-300'
+                            ? 'bg-purple-600/20 border-purple-500 text-purple-300 shadow-sm'
                             : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
                         }`}
                       >
@@ -732,9 +912,9 @@ export const SchedulesPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setBranchSelectionMode('ak_only')}
-                        className={`py-1.5 px-2 rounded-lg text-xs font-medium border cursor-pointer ${
+                        className={`py-1.5 px-2 rounded-lg text-xs font-medium border cursor-pointer transition-all ${
                           branchSelectionMode === 'ak_only'
-                            ? 'bg-purple-600/20 border-purple-500 text-purple-300'
+                            ? 'bg-purple-600/20 border-purple-500 text-purple-300 shadow-sm'
                             : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
                         }`}
                       >
@@ -743,9 +923,9 @@ export const SchedulesPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setBranchSelectionMode('custom')}
-                        className={`py-1.5 px-2 rounded-lg text-xs font-medium border cursor-pointer ${
+                        className={`py-1.5 px-2 rounded-lg text-xs font-medium border cursor-pointer transition-all ${
                           branchSelectionMode === 'custom'
-                            ? 'bg-purple-600/20 border-purple-500 text-purple-300'
+                            ? 'bg-purple-600/20 border-purple-500 text-purple-300 shadow-sm'
                             : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
                         }`}
                       >
@@ -758,43 +938,68 @@ export const SchedulesPage: React.FC = () => {
                         <div className="flex gap-2">
                           <input
                             type="text"
-                            placeholder="Filtrar tiendas..."
+                            placeholder="Buscar por código o nombre de tienda..."
                             value={branchSearch}
                             onChange={e => setBranchSearch(e.target.value)}
-                            className="flex-1 px-2.5 py-1 bg-slate-900 border border-slate-800 rounded text-xs text-white"
+                            className="flex-1 px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
                           />
                           <button
                             type="button"
                             onClick={selectAllBranches}
-                            className="px-2 py-1 bg-slate-800 text-[11px] text-slate-300 rounded hover:text-white cursor-pointer"
+                            className="px-2.5 py-1 bg-slate-800 text-[11px] text-slate-300 rounded-lg hover:text-white hover:bg-slate-700 cursor-pointer"
                           >
-                            Todas
+                            Todas ({branches.length})
                           </button>
                           <button
                             type="button"
                             onClick={deselectAllBranches}
-                            className="px-2 py-1 bg-slate-800 text-[11px] text-slate-300 rounded hover:text-white cursor-pointer"
+                            className="px-2.5 py-1 bg-slate-800 text-[11px] text-slate-300 rounded-lg hover:text-white hover:bg-slate-700 cursor-pointer"
                           >
                             Limpiar
                           </button>
                         </div>
-                        <div className="max-h-32 overflow-y-auto bg-slate-900 border border-slate-800 rounded-lg p-2 space-y-1">
-                          {filteredBranches.map(branch => (
-                            <label 
-                              key={branch.id} 
-                              className="flex items-center gap-2 px-2 py-1 hover:bg-slate-800 rounded cursor-pointer text-xs text-slate-300"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedBranchIds.includes(branch.id)}
-                                onChange={() => toggleBranch(branch.id)}
-                                className="rounded border-slate-700 text-purple-600 focus:ring-0"
-                              />
-                              <span className="font-mono text-purple-400">[{branch.branch_code}]</span>
-                              <span>{branch.branch_name}</span>
-                            </label>
-                          ))}
+
+                        <div className="max-h-40 overflow-y-auto bg-slate-900 border border-slate-800 rounded-lg p-2 space-y-1">
+                          {filteredBranches.length === 0 ? (
+                            <p className="text-slate-500 text-xs text-center py-3">No se encontraron tiendas.</p>
+                          ) : (
+                            filteredBranches.map(branch => {
+                              const bCode = branch.code || (branch as any).branch_code || `ID-${branch.id}`;
+                              const bName = branch.name || (branch as any).branch_name || 'Tienda';
+                              const isChecked = selectedBranchIds.includes(branch.id);
+                              return (
+                                <label 
+                                  key={branch.id} 
+                                  className="flex items-center justify-between px-2.5 py-1.5 hover:bg-slate-800/70 rounded-lg cursor-pointer text-xs text-slate-300 transition-colors"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => toggleBranch(branch.id)}
+                                      className="rounded border-slate-700 text-purple-600 focus:ring-0"
+                                    />
+                                    <span className="font-mono font-bold text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20 text-[11px]">
+                                      {bCode}
+                                    </span>
+                                    <span className="font-medium text-slate-200 truncate">{bName}</span>
+                                  </div>
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
+                                    branch.is_online ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-500 bg-slate-800'
+                                  }`}>
+                                    {branch.is_online ? 'En línea' : 'Desconectada'}
+                                  </span>
+                                </label>
+                              );
+                            })
+                          )}
                         </div>
+
+                        {selectedBranchIds.length > 0 && (
+                          <p className="text-[11px] text-slate-400">
+                            {selectedBranchIds.length} tienda(s) seleccionada(s) para este respaldo.
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
