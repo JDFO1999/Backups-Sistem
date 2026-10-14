@@ -142,9 +142,13 @@ export interface GoogleDriveStorage {
 export interface BackupSchedule {
   id: number;
   name: string;
-  server_id: number;
+  schedule_type?: 'DATABASE' | 'FOLDER';
+  server_id?: number | null;
   server_name?: string;
-  database_ids: number[];
+  database_ids?: number[];
+  target_branch_ids?: number[];
+  folder_scope?: 'critical' | 'all' | 'custom';
+  target_subfolders?: string[];
   cron_expression: string;
   compression_type: string;
   retention_count: number;

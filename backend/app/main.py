@@ -38,9 +38,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[RECOVERY] Error comprobando tareas pendientes: {e}")
 
+    # Launch automated scheduler daemon thread
+    import threading
+    from app.workers.tasks import start_scheduler_loop
+    stop_scheduler_event = threading.Event()
+    sched_thread = threading.Thread(target=start_scheduler_loop, args=(stop_scheduler_event,), daemon=True)
+    sched_thread.start()
+
     yield
 
-    # Shutdown logic if needed
+    stop_scheduler_event.set()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

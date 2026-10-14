@@ -124,7 +124,11 @@ class BackupSchedule(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(150), nullable=False)
-    server_id = Column(Integer, ForeignKey('servers.id', ondelete='CASCADE'), nullable=False)
+    schedule_type = Column(String(30), default='DATABASE')
+    server_id = Column(Integer, ForeignKey('servers.id', ondelete='CASCADE'), nullable=True)
+    target_branch_ids = Column(Text, nullable=True)
+    target_subfolders = Column(Text, nullable=True)
+    folder_scope = Column(String(30), default='critical')
     cron_expression = Column(String(100), nullable=False)
     compression_type = Column(String(20), default='GZIP')
     retention_count = Column(Integer, default=7)

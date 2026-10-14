@@ -33,7 +33,7 @@ api.interceptors.response.use(
   }
 );
 
-import { Branch, BranchSyncResult, FolderBackupJob, FolderBackupCreate, FolderBackupStats } from '../types';
+import { Branch, BranchSyncResult, FolderBackupJob, FolderBackupCreate, FolderBackupStats, BackupSchedule } from '../types';
 
 export const foldersApi = {
   getStats: () => api.get<FolderBackupStats>('/folders/stats'),
@@ -51,4 +51,14 @@ export const foldersApi = {
   },
   getFileLinks: (fileId: number) => api.get<{ web_view_link?: string; web_content_link?: string; size?: number }>(`/folders/files/${fileId}/links`),
 };
+
+export const schedulesApi = {
+  list: () => api.get<BackupSchedule[]>('/schedules'),
+  create: (data: Partial<BackupSchedule>) => api.post<BackupSchedule>('/schedules', data),
+  update: (id: number, data: Partial<BackupSchedule>) => api.put<BackupSchedule>(`/schedules/${id}`, data),
+  toggle: (id: number) => api.patch<BackupSchedule>(`/schedules/${id}/toggle`),
+  trigger: (id: number) => api.post<{ message: string; job_id?: number }>(`/schedules/${id}/trigger`),
+  delete: (id: number) => api.delete(`/schedules/${id}`),
+};
+
 

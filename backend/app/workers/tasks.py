@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 from datetime import datetime, timezone
 import redis
 from croniter import croniter
@@ -187,9 +188,69 @@ def execute_backup_job_logic(job_id: int):
 def run_backup_job(self, job_id: int):
     return execute_backup_job_logic(job_id)
 
-@celery.task
+def trigger_single_schedule(db, sched: BackupSchedule, user_id=None):
+    """Triggers a backup job from schedule (either database or folder)"""
+    now = datetime.now(timezone.utc)
+    if sched.schedule_type == "FOLDER":
+        from app.models import FolderBackupJob, Branch
+        from app.services.folder_backup_engine import execute_folder_backup_job_logic
+        target_branch_ids = []
+        if sched.target_branch_ids:
+            try:
+                target_branch_ids = json.loads(sched.target_branch_ids)
+            except Exception:
+                pass
+        if not target_branch_ids:
+            all_b = db.query(Branch).filter(Branch.is_active == True).all()
+            target_branch_ids = [b.id for b in all_b]
+
+        subfolders = None
+        if sched.folder_scope == 'critical':
+            subfolders = ['Data', 'Datos', 'DataSQL', 'Formularios']
+        elif sched.target_subfolders:
+            try:
+                subfolders = json.loads(sched.target_subfolders)
+            except Exception:
+                pass
+
+        job = FolderBackupJob(
+            job_name=f"[Prog] {sched.name} - {now.strftime('%Y-%m-%d %H:%M')}",
+            target_branch_ids=json.dumps(target_branch_ids),
+            target_subfolders=json.dumps(subfolders) if subfolders else None,
+            user_id=user_id,
+            status="PENDING",
+            progress_percent=0,
+            current_step="Encolado automáticamente por programación de carpetas",
+            total_branches=len(target_branch_ids)
+        )
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+
+        t = threading.Thread(target=execute_folder_backup_job_logic, args=(job.id,))
+        t.daemon = True
+        t.start()
+        return job
+    else:
+        job = BackupJob(
+            server_id=sched.server_id,
+            schedule_id=sched.id,
+            trigger_type="SCHEDULED",
+            status="PENDING",
+            progress_percent=0,
+            current_step="Encolado automáticamente por programación de bases de datos"
+        )
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+
+        t = threading.Thread(target=execute_backup_job_logic, args=(job.id,))
+        t.daemon = True
+        t.start()
+        return job
+
 def check_scheduled_backups():
-    """Runs every minute via Celery Beat to trigger automated schedules"""
+    """Checks for due automated schedules and triggers their jobs"""
     db = SessionLocal()
     try:
         now = datetime.now(timezone.utc)
@@ -199,22 +260,9 @@ def check_scheduled_backups():
         ).all()
 
         for sched in schedules:
-            logger.info(f"Disparando backup programado: {sched.name} (ID: {sched.id})")
-            
-            # Create BackupJob
-            job = BackupJob(
-                server_id=sched.server_id,
-                schedule_id=sched.id,
-                trigger_type="SCHEDULED",
-                status="PENDING",
-                progress_percent=0,
-                current_step="Encolado automáticamente por scheduler"
-            )
-            db.add(job)
-            db.commit()
-            db.refresh(job)
+            logger.info(f"Disparando backup programado: {sched.name} (Tipo: {sched.schedule_type}, ID: {sched.id})")
+            trigger_single_schedule(db, sched)
 
-            # Update schedule run dates
             sched.last_run_at = now
             try:
                 c = croniter(sched.cron_expression, now)
@@ -223,10 +271,18 @@ def check_scheduled_backups():
                 pass
             db.commit()
 
-            # Launch task
-            run_backup_job.delay(job.id)
-
     except Exception as e:
         logger.error(f"Error verificando schedules: {e}")
     finally:
         db.close()
+
+def start_scheduler_loop(stop_event: threading.Event):
+    """Background daemon thread checking schedules every 30 seconds"""
+    logger.info("Scheduler daemon iniciado. Verificando programaciones cada 30 segundos...")
+    while not stop_event.is_set():
+        try:
+            check_scheduled_backups()
+        except Exception as e:
+            logger.error(f"Error en scheduler daemon: {e}")
+        stop_event.wait(30)
+
