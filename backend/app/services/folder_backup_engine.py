@@ -8,6 +8,13 @@ from typing import Dict, Any, List, Optional, Callable
 from app.core.database import SessionLocal
 from app.models import Branch, FolderBackupJob, FolderBackupFile, GoogleDriveAccount
 from app.services.google_drive_service import GoogleDriveService
+
+# Optimization: Increase tarfile copyfileobj buffer from 16KB to 1MB for high-speed SMB network reads
+_orig_copyfileobj = tarfile.copyfileobj
+def _fast_copyfileobj(src, dst, length=None, exception=OSError, bufsize=None):
+    return _orig_copyfileobj(src, dst, length=length, exception=exception, bufsize=bufsize or (1024 * 1024))
+tarfile.copyfileobj = _fast_copyfileobj
+
 from app.core.security import decrypt_secret
 
 logger = logging.getLogger(__name__)

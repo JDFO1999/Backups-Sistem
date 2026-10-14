@@ -348,14 +348,20 @@ class GoogleDriveService:
                 time.sleep(sleep_s)
 
         # Google Drive requires chunks to be multiples of 256 KiB (262,144 bytes)
-        # 8 MiB = 8,388,608 bytes (32 * 256 KiB)
-        CHUNK_SIZE = 8 * 1024 * 1024
-        compressor = zlib.compressobj(level=6, wbits=31) if compress else None
+        # 32 MiB = 33,554,432 bytes (128 * 256 KiB) - 4x larger chunks for maximum transmission throughput
+        CHUNK_SIZE = 32 * 1024 * 1024
+        # Level 1 (fastest compression) is ~3-4x faster on CPU while retaining ~90% compression ratio
+        compressor = zlib.compressobj(level=1, wbits=31) if compress else None
 
         buffer = bytearray()
         total_compressed_sent = 0
         total_raw_read = 0
         sha256 = hashlib.sha256()
+
+        # Reusable HTTP session with connection pooling for maximum keep-alive performance
+        http_session = requests.Session()
+        adapter = requests.adapters.HTTPAdapter(pool_connections=5, pool_maxsize=10, max_retries=3)
+        http_session.mount("https://", adapter)
 
         def _send_chunk_with_retry(chunk_bytes: bytes, content_range_str: str, is_final: bool = False):
             retries = 0
@@ -372,7 +378,7 @@ class GoogleDriveService:
                         "Content-Range": content_range_str,
                         "Content-Length": str(len(chunk_bytes))
                     }
-                    resp = requests.put(session_url, headers=h, data=chunk_bytes, timeout=120)
+                    resp = http_session.put(session_url, headers=h, data=chunk_bytes, timeout=180)
                     if is_final:
                         if resp.status_code in [200, 201]:
                             return resp
@@ -395,7 +401,7 @@ class GoogleDriveService:
                     time.sleep(sleep_s)
 
         while True:
-            raw_chunk = stream_reader.read(1024 * 512)
+            raw_chunk = stream_reader.read(1024 * 1024 * 2)
             if not raw_chunk:
                 break
             total_raw_read += len(raw_chunk)
