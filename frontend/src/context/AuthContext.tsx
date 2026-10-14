@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
 import { api } from '../services/api';
 
@@ -8,7 +8,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   login: (token: string, user: User) => void;
-  logout: () => void;
+  logout: (password?: string) => Promise<boolean>;
   loading: boolean;
 }
 
@@ -41,16 +41,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(newUser);
   };
 
-  const logout = async () => {
+  const logout = async (password?: string): Promise<boolean> => {
     try {
-      await api.post('/auth/logout');
-    } catch {
-      // ignore
-    } finally {
+      await api.post('/auth/logout', { password: password || undefined });
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       setToken(null);
       setUser(null);
+      return true;
+    } catch (err: any) {
+      const msg = err.response?.data?.detail || 'Error al cerrar sesión.';
+      throw new Error(msg);
     }
   };
 

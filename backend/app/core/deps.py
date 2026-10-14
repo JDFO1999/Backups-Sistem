@@ -1,4 +1,4 @@
-﻿from typing import Generator, Optional
+from typing import Generator, Optional
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -18,7 +18,9 @@ def get_db() -> Generator:
     finally:
         db.close()
 
-def get_client_ip(request: Request) -> str:
+def get_client_ip(request: Optional[Request]) -> str:
+    if not request:
+        return "127.0.0.1"
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
         return forwarded.split(",")[0].strip()

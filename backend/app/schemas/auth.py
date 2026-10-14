@@ -1,4 +1,4 @@
-﻿from typing import Optional
+from typing import Optional
 from pydantic import BaseModel, EmailStr
 
 class Token(BaseModel):
@@ -23,3 +23,6 @@ class RefreshTokenRequest(BaseModel):
 class PasswordResetRequest(BaseModel):
     current_password: str
     new_password: str
+
+class LogoutRequest(BaseModel):
+    password: Optional[str] = None

@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     # Security & Tokens
     SECRET_KEY: str = "super_insecure_default_secret_please_change_in_production_32chars"
     MASTER_ENCRYPTION_KEY: str = "master_fernet_compatible_key_change_in_production="
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 43200  # 30 días continuos sin desconexión
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 90  # 90 días
     ALGORITHM: str = "HS256"
 
     # Superuser Default (Seeded at startup)

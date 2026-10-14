@@ -34,8 +34,96 @@ export const Sidebar: React.FC<SidebarProps> = ({
     ] : [])
   ];
 
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = React.useState(false);
+  const [logoutPassword, setLogoutPassword] = React.useState('');
+  const [loggingOut, setLoggingOut] = React.useState(false);
+  const [logoutError, setLogoutError] = React.useState('');
+
+  const handleLogoutClick = async () => {
+    if (!isAdmin) {
+      await logout();
+      return;
+    }
+    setLogoutPassword('');
+    setLogoutError('');
+    setIsLogoutModalOpen(true);
+  };
+
+  const handleConfirmAdminLogout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!logoutPassword) {
+      setLogoutError('Debe ingresar su contraseña.');
+      return;
+    }
+    setLoggingOut(true);
+    setLogoutError('');
+    try {
+      await logout(logoutPassword);
+      setIsLogoutModalOpen(false);
+    } catch (err: any) {
+      setLogoutError(err.message || 'Contraseña incorrecta.');
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   return (
     <>
+      {/* Modal de confirmación de contraseña para Administrador */}
+      {isLogoutModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl space-y-4">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-3">
+                <ShieldAlert className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-bold text-white">Confirmar Cierre de Sesión</h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Por seguridad, el <strong className="text-amber-400">Administrador</strong> debe ingresar la contraseña con la que inició sesión para poder desconectarse.
+              </p>
+            </div>
+
+            <form onSubmit={handleConfirmAdminLogout} className="space-y-3 pt-2">
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Contraseña de Acceso
+                </label>
+                <input
+                  type="password"
+                  required
+                  autoFocus
+                  placeholder="Ingrese su contraseña"
+                  value={logoutPassword}
+                  onChange={(e) => setLogoutPassword(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                />
+                {logoutError && (
+                  <p className="text-[11px] text-red-400 mt-1.5 font-medium">{logoutError}</p>
+                )}
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsLogoutModalOpen(false)}
+                  disabled={loggingOut}
+                  className="flex-1 py-2 px-3 rounded-xl text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 transition-colors"
+                >
+                  Permanecer Conectado
+                </button>
+                <button
+                  type="submit"
+                  disabled={loggingOut}
+                  className="flex-1 py-2 px-3 rounded-xl text-xs font-semibold text-white bg-red-600 hover:bg-red-500 disabled:opacity-50 transition-colors shadow-lg shadow-red-600/20"
+                >
+                  {loggingOut ? 'Verificando...' : 'Cerrar Sesión'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Mobile overlay */}
       {isOpen && (
         <div 
@@ -114,14 +202,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded
                 ${isAdmin ? 'bg-amber-500/10 text-amber-400' : 'bg-slate-700 text-slate-300'}
               `}>
-                {isAdmin ? 'ADMINISTRADOR' : 'OPERADOR'}
+                {isAdmin ? 'ADMINISTRADOR (SESIÓN PERMANENTE)' : 'OPERADOR'}
               </span>
             </div>
           </div>
 
           <button
-            onClick={logout}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+            onClick={handleLogoutClick}
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
             Cerrar Sesión

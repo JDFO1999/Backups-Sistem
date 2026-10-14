@@ -23,10 +23,30 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      // Ignorar errores de contraseña incorrecta en confirmación de logout o login
+      const url = error.config?.url || '';
+      if (url.includes('/auth/login') || url.includes('/auth/logout')) {
+        return Promise.reject(error);
+      }
+
+      // Si el usuario actual guardado es ADMIN, no lo sacamos inmediatamente
+      const rawUser = localStorage.getItem('user');
+      let isAdmin = false;
+      try {
+        if (rawUser) {
+          const parsed = JSON.parse(rawUser);
+          isAdmin = parsed?.role?.name === 'ADMIN' || parsed?.role === 'ADMIN';
+        }
+      } catch {
+        isAdmin = false;
+      }
+
+      if (!isAdmin) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);

@@ -11,8 +11,9 @@ from app.core.security import (
     create_access_token, create_refresh_token, decode_token
 )
 from app.models import User
+from typing import Optional
 from app.schemas.auth import (
-    Token, LoginRequest, RefreshTokenRequest, PasswordResetRequest
+    Token, LoginRequest, RefreshTokenRequest, PasswordResetRequest, LogoutRequest
 )
 from app.schemas.user import UserResponse
 from app.services.audit_service import log_audit
@@ -188,9 +189,30 @@ def change_password(
 @router.post("/logout")
 def logout(
     request: Request,
+    logout_data: Optional[LogoutRequest] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    is_admin = current_user.role and current_user.role.name == "ADMIN"
+    if is_admin:
+        if not logout_data or not logout_data.password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Por seguridad, el administrador debe ingresar su contraseña de acceso para poder cerrar la sesión."
+            )
+        if not verify_password(logout_data.password, current_user.hashed_password):
+            log_audit(
+                db, action="LOGOUT_FAILED",
+                user=current_user,
+                ip_address=get_client_ip(request),
+                status="FAILURE",
+                details={"reason": "Contraseña de confirmación incorrecta"}
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Contraseña incorrecta. No se autoriza el cierre de sesión del administrador."
+            )
+
     log_audit(
         db, action="LOGOUT",
         user=current_user,
