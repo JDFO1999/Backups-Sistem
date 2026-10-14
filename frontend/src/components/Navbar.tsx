@@ -24,16 +24,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, title }) => {
       </div>
 
       <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-        <div className="hidden sm:flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-slate-950/80 border border-slate-800 text-xs shadow-sm">
+        <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-slate-950/80 border border-slate-800 text-xs shadow-sm">
           <img src="/alkosto-logo-color-clean.png" alt="Alkosto" className="h-4 sm:h-5 w-auto object-contain" />
           <span className="text-slate-700">•</span>
           <span className="text-emerald-400 font-mono text-xs font-semibold flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
             Online
           </span>
-        </div>
-        <div className="text-xs text-slate-400 font-mono truncate max-w-[140px] sm:max-w-none">
-          {user?.email}
         </div>
       </div>
     </header>
