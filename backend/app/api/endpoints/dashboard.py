@@ -8,7 +8,7 @@ from app.models import (
     FolderBackupJob, FolderBackupFile, Branch
 )
 from app.schemas.dashboard import (
-    DashboardStatsResponse, StorageChartItem, BackupsPerDayItem
+    DashboardStatsResponse, StorageChartItem, BackupsPerDayItem, RecentBackupItem
 )
 from app.schemas.backup import BackupJobResponse
 from app.schemas.audit import AuditLogResponse
@@ -72,8 +72,40 @@ def get_dashboard_stats(
     ).order_by(BackupSchedule.next_run_at.asc()).first()
     next_scheduled_time = next_sched.next_run_at if next_sched else None
 
-    # Recent backups (last 5)
-    recent_jobs = db.query(BackupJob).order_by(BackupJob.id.desc()).limit(5).all()
+    # Recent backups (Combinando BD y Carpetas de Tiendas, ordenados por fecha reciente)
+    recent_db_jobs = db.query(BackupJob).order_by(BackupJob.id.desc()).limit(10).all()
+    recent_folder_jobs = db.query(FolderBackupJob).order_by(FolderBackupJob.id.desc()).limit(10).all()
+
+    combined_recent: list[RecentBackupItem] = []
+    for j in recent_db_jobs:
+        combined_recent.append(RecentBackupItem(
+            id=j.id,
+            backup_type="DATABASE",
+            target_name=j.server.name if j.server else f"Servidor #{j.server_id}",
+            status=j.status,
+            progress_percent=j.progress_percent,
+            current_step=j.current_step,
+            error_message=j.error_message,
+            created_at=j.created_at,
+            size_formatted=format_bytes(j.total_compressed_size_bytes or 0)
+        ))
+
+    for fj in recent_folder_jobs:
+        combined_recent.append(RecentBackupItem(
+            id=fj.id,
+            backup_type="FOLDER",
+            target_name=fj.job_name or f"Carpetas Tienda #{fj.id}",
+            status=fj.status,
+            progress_percent=fj.progress_percent,
+            current_step=fj.current_step,
+            error_message=fj.error_message,
+            created_at=fj.created_at,
+            size_formatted=format_bytes(fj.total_size_bytes or 0)
+        ))
+
+    # Ordenar por created_at desc y tomar los 8 más recientes
+    combined_recent.sort(key=lambda x: x.created_at, reverse=True)
+    recent_backups = combined_recent[:8]
 
     # Recent errors (from AuditLog)
     recent_errors = db.query(AuditLog).filter(AuditLog.status == "FAILURE").order_by(AuditLog.id.desc()).limit(5).all()
@@ -124,7 +156,7 @@ def get_dashboard_stats(
         total_app_backups_formatted=format_bytes(total_app_backups_bytes),
         last_backup_time=last_backup_time,
         next_scheduled_backup_time=next_scheduled_time,
-        recent_backups=[_format_job(j) for j in recent_jobs],
+        recent_backups=recent_backups,
         recent_errors=recent_errors,
         storage_history=storage_history,
         backups_per_day=backups_per_day

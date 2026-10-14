@@ -173,6 +173,18 @@ export interface AuditLog {
   created_at: string;
 }
 
+export interface RecentBackupItem {
+  id: number;
+  backup_type: 'DATABASE' | 'FOLDER';
+  target_name: string;
+  status: string;
+  progress_percent: number;
+  current_step: string;
+  error_message?: string;
+  created_at: string;
+  size_formatted?: string;
+}
+
 export interface DashboardStats {
   total_servers: number;
   total_databases: number;
@@ -194,7 +206,7 @@ export interface DashboardStats {
   total_app_backups_formatted?: string;
   last_backup_time?: string;
   next_scheduled_backup_time?: string;
-  recent_backups: BackupJob[];
+  recent_backups: RecentBackupItem[];
   recent_errors: AuditLog[];
   storage_history: { date: string; size_bytes: number; size_formatted: string }[];
   backups_per_day: { date: string; count: number }[];

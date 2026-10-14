@@ -246,20 +246,36 @@ export const DashboardPage: React.FC<{ onNavigate: (tab: string) => void }> = ({
       {/* Recent Backups Table */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
         <div className="p-4 border-b border-slate-800 flex justify-between items-center">
-          <h3 className="text-sm font-semibold text-white">Backups Recientes</h3>
-          <button
-            onClick={() => onNavigate('backups')}
-            className="text-xs text-blue-400 hover:text-blue-300 font-medium"
-          >
-            Ver Historial Completo →
-          </button>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-white">Backups Recientes (BD & Tiendas)</h3>
+            <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full border border-slate-700">
+              En tiempo real
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => onNavigate('backups')}
+              className="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1"
+            >
+              <Database className="w-3 h-3" /> Backups BD →
+            </button>
+            <span className="text-slate-700">•</span>
+            <button
+              onClick={() => onNavigate('folders')}
+              className="text-xs text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1"
+            >
+              <Folder className="w-3 h-3" /> Carpetas Tiendas →
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-950/50 text-slate-400 font-medium border-b border-slate-800">
               <tr>
                 <th className="py-3 px-4">ID</th>
-                <th className="py-3 px-4">Servidor</th>
+                <th className="py-3 px-4">Tipo</th>
+                <th className="py-3 px-4">Origen / Objetivo</th>
+                <th className="py-3 px-4">Tamaño</th>
                 <th className="py-3 px-4">Estado</th>
                 <th className="py-3 px-4">Progreso</th>
                 <th className="py-3 px-4">Detalle / Paso</th>
@@ -268,38 +284,63 @@ export const DashboardPage: React.FC<{ onNavigate: (tab: string) => void }> = ({
             </thead>
             <tbody className="divide-y divide-slate-800">
               {stats?.recent_backups && stats.recent_backups.length > 0 ? (
-                stats.recent_backups.map((job) => (
-                  <tr key={job.id} className="hover:bg-slate-800/40">
-                    <td className="py-3 px-4 font-mono text-slate-400">#{job.id}</td>
-                    <td className="py-3 px-4 text-white font-medium">{job.server_name}</td>
-                    <td className="py-3 px-4">
-                      <span className={`
-                        inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium
-                        ${job.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-400' :
-                          job.status === 'RUNNING' ? 'bg-blue-500/10 text-blue-400' :
-                          job.status === 'FAILED' ? 'bg-red-500/10 text-red-400' :
-                          'bg-slate-700 text-slate-300'}
-                      `}>
-                        {job.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="w-24 bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div 
-                          className="bg-blue-500 h-full rounded-full" 
-                          style={{ width: `${job.progress_percent}%` }}
-                        />
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-slate-300 truncate max-w-xs">{job.current_step}</td>
-                    <td className="py-3 px-4 text-slate-400">
-                      {new Date(job.created_at).toLocaleString('es-ES')}
-                    </td>
-                  </tr>
-                ))
+                stats.recent_backups.map((job) => {
+                  const isFolder = job.backup_type === 'FOLDER';
+                  return (
+                    <tr 
+                      key={`${job.backup_type}-${job.id}`} 
+                      className="hover:bg-slate-800/40 transition-colors cursor-pointer"
+                      onClick={() => onNavigate(isFolder ? 'folders' : 'backups')}
+                      title={`Clic para ir a ${isFolder ? 'Carpetas Tiendas' : 'Backups BD'}`}
+                    >
+                      <td className="py-3 px-4 font-mono text-slate-400">#{job.id}</td>
+                      <td className="py-3 px-4">
+                        {isFolder ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                            <Folder className="w-2.5 h-2.5" /> Tiendas
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                            <Database className="w-2.5 h-2.5" /> Base Datos
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-white font-medium flex items-center gap-2">
+                        {job.target_name}
+                      </td>
+                      <td className="py-3 px-4 font-mono text-slate-300">
+                        {job.size_formatted || '0 B'}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`
+                          inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium
+                          ${job.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-400' :
+                            job.status === 'RUNNING' ? 'bg-blue-500/10 text-blue-400' :
+                            job.status === 'FAILED' ? 'bg-red-500/10 text-red-400' :
+                            job.status === 'INTERRUPTED' ? 'bg-amber-500/10 text-amber-400' :
+                            'bg-slate-700 text-slate-300'}
+                        `}>
+                          {job.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="w-20 bg-slate-800 h-2 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full rounded-full ${isFolder ? 'bg-blue-500' : 'bg-indigo-500'}`} 
+                            style={{ width: `${job.progress_percent}%` }}
+                          />
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-slate-300 truncate max-w-xs">{job.current_step}</td>
+                      <td className="py-3 px-4 text-slate-400 whitespace-nowrap">
+                        {new Date(job.created_at).toLocaleString('es-ES')}
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-slate-500">
+                  <td colSpan={8} className="py-6 text-center text-slate-500">
                     No se han registrado backups recientemente.
                   </td>
                 </tr>

@@ -13,6 +13,17 @@ class BackupsPerDayItem(BaseModel):
     date: str
     count: int
 
+class RecentBackupItem(BaseModel):
+    id: int
+    backup_type: str  # 'DATABASE' | 'FOLDER'
+    target_name: str  # Nombre de servidor o nombre del trabajo de carpetas
+    status: str
+    progress_percent: int
+    current_step: str
+    error_message: Optional[str] = None
+    created_at: datetime
+    size_formatted: Optional[str] = None
+
 class DashboardStatsResponse(BaseModel):
     total_servers: int
     total_databases: int
@@ -34,7 +45,7 @@ class DashboardStatsResponse(BaseModel):
     total_app_backups_formatted: str = "0 B"
     last_backup_time: Optional[datetime] = None
     next_scheduled_backup_time: Optional[datetime] = None
-    recent_backups: List[BackupJobResponse] = []
+    recent_backups: List[RecentBackupItem] = []
     recent_errors: List[AuditLogResponse] = []
     storage_history: List[StorageChartItem] = []
     backups_per_day: List[BackupsPerDayItem] = []
