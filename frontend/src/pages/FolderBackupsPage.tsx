@@ -361,14 +361,10 @@ export const FolderBackupsPage: React.FC = () => {
             <div className="text-2xl font-bold text-emerald-400 tracking-tight">
               {formatBytes(totalDriveSizeBytes)}
             </div>
-            <div className="mt-1 space-y-0.5">
+            <div className="mt-1">
               <p className="text-[11px] text-slate-400 flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
                 Guardado en Drive por sucursal
-              </p>
-              <p className="text-[10px] text-amber-400/90 flex items-center gap-1 font-medium">
-                <Zap className="w-3 h-3 text-amber-400 inline" />
-                Consumo Disco C: 0 Bytes (Zero-Disk)
               </p>
             </div>
           </div>
