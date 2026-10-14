@@ -1,7 +1,8 @@
-﻿import json
+import json
 import threading
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -24,8 +25,7 @@ router = APIRouter()
 def _format_folder_job(job: FolderBackupJob) -> FolderBackupJobResponse:
     files_res = []
     for f in (job.backup_files or []):
-        files_res.append(FolderBackupFileResponse,
-    FolderBackupStatsResponse(
+        files_res.append(FolderBackupFileResponse(
             id=f.id,
             job_id=f.job_id,
             branch_id=f.branch_id,
@@ -309,3 +309,110 @@ def delete_folder_backup_job(
     )
 
     return {"message": "Tarea de respaldo de carpetas y archivos eliminados correctamente."}
+
+
+@router.get("/files/{file_id}/download")
+def download_folder_backup_file(
+    file_id: int,
+    token: Optional[str] = None,
+    request: Request = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Stream a backed up .tar.gz archive directly from Google Drive to the browser
+    with ZERO disk consumption on drive C:.
+    Supports Bearer header and ?token= query parameter for direct browser links.
+    """
+    auth_token = None
+    if request and request.headers.get("Authorization"):
+        auth_header = request.headers.get("Authorization")
+        if auth_header.startswith("Bearer "):
+            auth_token = auth_header.split(" ")[1]
+    if not auth_token and token:
+        auth_token = token
+
+    if not auth_token:
+        raise HTTPException(status_code=401, detail="Token de autenticación requerido.")
+
+    from app.core.security import decode_token
+    payload = decode_token(auth_token)
+    if not payload or payload.get("type") != "access":
+        raise HTTPException(status_code=401, detail="Token inválido o expirado.")
+
+    user_id = payload.get("sub")
+    try:
+        uid = int(user_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Token inválido.")
+
+    user = db.query(User).filter(User.id == uid).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=403, detail="Usuario no autorizado o inactivo.")
+
+    backup_file = db.query(FolderBackupFile).filter(FolderBackupFile.id == file_id).first()
+    if not backup_file:
+        raise HTTPException(status_code=404, detail="Archivo de respaldo no encontrado.")
+
+    if not backup_file.google_drive_file_id:
+        raise HTTPException(status_code=404, detail="El archivo no cuenta con un identificador en Google Drive.")
+
+    drive_account = db.query(GoogleDriveAccount).filter(GoogleDriveAccount.is_active == True).first()
+    if not drive_account or not drive_account.encrypted_token_json:
+        raise HTTPException(status_code=400, detail="No hay una cuenta de Google Drive activa vinculada.")
+
+    from app.core.security import decrypt_secret
+    from app.services.google_drive_service import GoogleDriveService
+    token_json = decrypt_secret(drive_account.encrypted_token_json)
+    if not token_json:
+        raise HTTPException(status_code=400, detail="No se pudieron descifrar las credenciales de Google Drive.")
+
+    media_stream = GoogleDriveService.get_download_stream(token_json, backup_file.google_drive_file_id)
+
+    headers = {
+        "Content-Disposition": f'attachment; filename="{backup_file.file_name}"',
+    }
+    if backup_file.file_size_bytes:
+        headers["Content-Length"] = str(backup_file.file_size_bytes)
+
+    log_audit(
+        db, action="DOWNLOAD_FOLDER_BACKUP",
+        user=user,
+        resource_type="FOLDER_BACKUP_FILE",
+        resource_id=file_id,
+        ip_address=get_client_ip(request) if request else "127.0.0.1",
+        details={"file_name": backup_file.file_name, "size_bytes": backup_file.file_size_bytes}
+    )
+
+    return StreamingResponse(
+        media_stream,
+        media_type="application/gzip",
+        headers=headers
+    )
+
+
+@router.get("/files/{file_id}/links")
+def get_folder_backup_file_links(
+    file_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Get webViewLink and webContentLink from Google Drive for direct access.
+    """
+    backup_file = db.query(FolderBackupFile).filter(FolderBackupFile.id == file_id).first()
+    if not backup_file or not backup_file.google_drive_file_id:
+        raise HTTPException(status_code=404, detail="Archivo o ID de Google Drive no encontrado.")
+
+    drive_account = db.query(GoogleDriveAccount).filter(GoogleDriveAccount.is_active == True).first()
+    if not drive_account or not drive_account.encrypted_token_json:
+        raise HTTPException(status_code=400, detail="Cuenta de Google Drive no configurada.")
+
+    from app.core.security import decrypt_secret
+    from app.services.google_drive_service import GoogleDriveService
+    token_json = decrypt_secret(drive_account.encrypted_token_json)
+    if not token_json:
+        raise HTTPException(status_code=400, detail="No se pudieron descifrar las credenciales de Google Drive.")
+
+    links = GoogleDriveService.get_file_links(token_json, backup_file.google_drive_file_id)
+    return links
+

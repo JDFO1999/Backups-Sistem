@@ -45,4 +45,10 @@ export const foldersApi = {
   getJob: (jobId: number) => api.get<FolderBackupJob>(`/folders/jobs/${jobId}`),
   resumeJob: (jobId: number, restartFresh: boolean = false) => api.post<FolderBackupJob>(`/folders/jobs/${jobId}/resume`, null, { params: { restart_fresh: restartFresh } }),
   deleteJob: (jobId: number) => api.delete(`/folders/jobs/${jobId}`),
+  getFileDownloadUrl: (fileId: number) => {
+    const token = localStorage.getItem('token');
+    return `${API_BASE_URL}/folders/files/${fileId}/download${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+  },
+  getFileLinks: (fileId: number) => api.get<{ web_view_link?: string; web_content_link?: string; size?: number }>(`/folders/files/${fileId}/links`),
 };
+

@@ -18,7 +18,8 @@ import {
   ExternalLink,
   ShieldCheck,
   Zap,
-  Cloud
+  Cloud,
+  Download
 } from 'lucide-react';
 import { foldersApi } from '../services/api';
 import { Branch, FolderBackupJob, FolderBackupStats } from '../types';
@@ -660,8 +661,20 @@ export const FolderBackupsPage: React.FC = () => {
                               {job.current_step}
                             </p>
                           </td>
-                          <td className="py-3 px-4 text-center font-mono font-medium text-slate-200">
-                            {job.completed_branches || 0} / {job.total_branches || 0}
+                          <td className="py-3 px-4 text-center font-mono">
+                            <div className="font-medium text-slate-200">
+                              {job.completed_branches || 0} / {job.total_branches || 0}
+                            </div>
+                            {job.backup_files && job.backup_files.length > 0 && (
+                              <button
+                                onClick={() => setSelectedJobForFiles(job)}
+                                className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+                                title="Ver / Descargar archivos"
+                              >
+                                <Download className="w-2.5 h-2.5" />
+                                <span>{job.backup_files.length} archivo(s)</span>
+                              </button>
+                            )}
                           </td>
                           <td className="py-3 px-4 font-mono font-medium text-emerald-400">
                             {formatBytes(job.total_size_bytes || 0)}
@@ -678,6 +691,28 @@ export const FolderBackupsPage: React.FC = () => {
                               >
                                 <RotateCcw className="h-3.5 w-3.5" />
                               </button>
+                            )}
+
+                            {/* Direct download icon if job has files */}
+                            {job.backup_files && job.backup_files.length > 0 && (
+                              job.backup_files.length === 1 ? (
+                                <a
+                                  href={foldersApi.getFileDownloadUrl(job.backup_files[0].id)}
+                                  download={job.backup_files[0].file_name}
+                                  className="inline-flex items-center p-1.5 text-emerald-400 hover:bg-emerald-500/10 border border-emerald-500/20 rounded-md transition-colors"
+                                  title={`Descargar archivo (${job.backup_files[0].file_name})`}
+                                >
+                                  <Download className="h-3.5 w-3.5" />
+                                </a>
+                              ) : (
+                                <button
+                                  onClick={() => setSelectedJobForFiles(job)}
+                                  className="inline-flex items-center p-1.5 text-emerald-400 hover:bg-emerald-500/10 border border-emerald-500/20 rounded-md transition-colors"
+                                  title={`Descargar archivos (${job.backup_files.length} disponibles)`}
+                                >
+                                  <Download className="h-3.5 w-3.5" />
+                                </button>
+                              )
                             )}
 
                             <button
@@ -922,13 +957,42 @@ export const FolderBackupsPage: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="text-right">
-                      <span className="font-mono font-bold text-xs text-emerald-400">
-                        {formatBytes(file.file_size_bytes)}
-                      </span>
-                      <p className="text-[10px] text-emerald-400/90 font-medium flex items-center gap-1 justify-end mt-0.5">
-                        <CheckCircle className="h-3 w-3" /> Subido a Drive
-                      </p>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="text-left sm:text-right">
+                        <span className="font-mono font-bold text-xs text-emerald-400">
+                          {formatBytes(file.file_size_bytes)}
+                        </span>
+                        <p className="text-[10px] text-emerald-400/90 font-medium flex items-center gap-1 sm:justify-end mt-0.5">
+                          <CheckCircle className="h-3 w-3" /> Subido a Drive
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-2 sm:pt-0 sm:pl-3 sm:border-l sm:border-slate-800">
+                        {/* Direct browser download via backend proxy stream */}
+                        <a
+                          href={foldersApi.getFileDownloadUrl(file.id)}
+                          download={file.file_name}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-blue-600/20 hover:shadow-blue-500/30 transition-all cursor-pointer"
+                          title="Descargar este archivo .tar.gz directamente por el navegador"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Descargar</span>
+                        </a>
+
+                        {/* Open in Google Drive */}
+                        {file.google_drive_file_id && (
+                          <a
+                            href={`https://drive.google.com/file/d/${file.google_drive_file_id}/view`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs border border-slate-700/60 transition-colors inline-flex items-center gap-1"
+                            title="Ver o gestionar en Google Drive"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span className="text-[11px] sm:hidden">Drive</span>
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))

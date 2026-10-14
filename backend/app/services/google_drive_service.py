@@ -302,8 +302,61 @@ class GoogleDriveService:
                             raise
                         sleep_time = min(2 ** retries, 60)
                         logger.warning(f"Error transitorio descargando de Google Drive ({e}). Reintento {retries}/{max_retries} en {sleep_time}s...")
-                        import time
                         time.sleep(sleep_time)
+
+    @classmethod
+    def get_download_stream(cls, token_json: str, file_id: str, chunk_size: int = 8 * 1024 * 1024):
+        """
+        Stream binary data directly from Google Drive in chunks with ZERO disk usage on C:.
+        Yields chunk by chunk for HTTP streaming responses.
+        """
+        from googleapiclient.http import MediaIoBaseDownload
+        drive = cls.get_drive_client(token_json)
+        request = drive.files().get_media(fileId=file_id)
+
+        buf = io.BytesIO()
+        downloader = MediaIoBaseDownload(buf, request, chunksize=chunk_size)
+        done = False
+        while not done:
+            retries = 0
+            max_retries = 5
+            while True:
+                try:
+                    buf.seek(0)
+                    buf.truncate(0)
+                    status, done = downloader.next_chunk()
+                    buf.seek(0)
+                    data = buf.read()
+                    if data:
+                        yield data
+                    break
+                except Exception as e:
+                    retries += 1
+                    if retries > max_retries:
+                        logger.error(f"Fallo definitivo leyendo bloque de Google Drive ({file_id}): {e}")
+                        raise
+                    import time
+                    time.sleep(min(2 ** retries, 15))
+
+    @classmethod
+    def get_file_links(cls, token_json: str, file_id: str) -> Dict[str, Optional[str]]:
+        """Get webViewLink and webContentLink from Google Drive for direct browser access"""
+        try:
+            drive = cls.get_drive_client(token_json)
+            meta = drive.files().get(fileId=file_id, fields="id, name, webViewLink, webContentLink, size").execute()
+            return {
+                "web_view_link": meta.get("webViewLink"),
+                "web_content_link": meta.get("webContentLink"),
+                "size": meta.get("size")
+            }
+        except Exception as e:
+            logger.warning(f"Error fetching file links from Google Drive for {file_id}: {e}")
+            return {
+                "web_view_link": f"https://drive.google.com/file/d/{file_id}/view",
+                "web_content_link": f"https://drive.google.com/uc?id={file_id}&export=download",
+                "size": None
+            }
+
 
     @classmethod
     def upload_stream_resumable(
