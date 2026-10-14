@@ -33,14 +33,14 @@ export const Login: React.FC = () => {
       <div className="w-full max-w-md space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto w-24 h-24 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center p-2 shadow-2xl shadow-blue-500/10 mb-3">
-            <img src="/alkosto-mascot-logo.png" alt="Alkosto Mascota" className="w-full h-full object-contain" />
+          <div className="mx-auto w-24 h-24 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center p-2.5 shadow-2xl shadow-blue-500/10 mb-4">
+            <img src="/alkosto-mascot-logo-clean.png" alt="Alkosto Mascota" className="w-full h-full object-contain" />
           </div>
-          <div className="flex justify-center mb-1.5">
-            <img src="/alkosto-logo-color.png" alt="Alkosto" className="h-6 sm:h-7 object-contain" />
+          <div className="flex justify-center mb-2">
+            <img src="/alkosto-logo-color-clean.png" alt="Alkosto" className="h-10 sm:h-12 w-auto object-contain max-w-[280px]" />
           </div>
           <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">
-            Sistema Centralizado de Respaldos
+            Gestión de Respaldos
           </h2>
           <p className="mt-0.5 text-xs text-slate-400">
             Bases de Datos Comerciales & Carpetas de Tiendas
@@ -63,7 +63,7 @@ export const Login: React.FC = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@example.com"
+                  placeholder="usuario@alkosto.com"
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
                 />
               </div>
@@ -82,7 +82,7 @@ export const Login: React.FC = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
+                  placeholder="Contraseña"
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
                 />
               </div>
@@ -103,12 +103,6 @@ export const Login: React.FC = () => {
               )}
             </button>
           </form>
-
-          <div className="mt-6 pt-5 border-t border-slate-800/80 text-center">
-            <p className="text-xs text-slate-500">
-              Credenciales por defecto: <code className="text-slate-400">admin@example.com</code> / <code className="text-slate-400">AdminSecurePass123!</code>
-            </p>
-          </div>
         </div>
       </div>
     </div>

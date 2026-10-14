@@ -53,12 +53,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="h-20 flex items-center justify-between px-5 border-b border-slate-800 bg-slate-950/40">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-11 h-11 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center p-1 shadow-md shadow-blue-500/10 shrink-0">
-              <img src="/alkosto-mascot-logo.png" alt="Alkosto" className="w-full h-full object-contain" />
+              <img src="/alkosto-mascot-logo-clean.png" alt="Alkosto" className="w-full h-full object-contain" />
             </div>
             <div className="min-w-0">
-              <img src="/alkosto-logo-white.png" alt="Alkosto" className="h-4 object-contain" />
-              <span className="text-[10px] text-blue-400 font-mono uppercase tracking-wider block mt-1">
-                Backup Manager
+              <img src="/alkosto-logo-white-clean.png" alt="Alkosto" className="h-5 sm:h-6 w-auto object-contain max-w-[130px]" />
+              <span className="text-[10px] text-blue-400 font-mono uppercase tracking-wider block mt-1 font-semibold">
+                Gestión de Respaldos
               </span>
             </div>
           </div>

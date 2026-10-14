@@ -41,7 +41,7 @@ const MainLayout: React.FC = () => {
       case 'google-drive': return 'Configuración de Google Drive';
       case 'users': return 'Administración de Usuarios y Permisos';
       case 'audit': return 'Bitácora de Auditoría';
-      default: return 'Alkosto - Backup Manager';
+      default: return 'Alkosto - Gestión de Respaldos';
     }
   };
 
