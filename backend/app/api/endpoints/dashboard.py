@@ -1,4 +1,4 @@
-﻿from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -41,13 +41,15 @@ def get_dashboard_stats(
     successful_backups = successful_db + successful_folder
     failed_backups = failed_db + failed_folder
 
+    from sqlalchemy import func
+    drive_db_bytes = db.query(func.coalesce(func.sum(BackupFile.file_size_bytes), 0)).filter(BackupFile.status == "COMPLETED").scalar() or 0
+    drive_folder_bytes = db.query(func.coalesce(func.sum(FolderBackupFile.file_size_bytes), 0)).filter(FolderBackupFile.status == "COMPLETED").scalar() or 0
+    total_app_backups_bytes = drive_db_bytes + drive_folder_bytes
+
     drive_account = db.query(GoogleDriveAccount).filter(GoogleDriveAccount.is_active == True).first()
     drive_used_bytes = drive_account.storage_used_bytes or 0 if drive_account else 0
     if drive_used_bytes == 0:
-        from sqlalchemy import func
-        db_f_sum = db.query(func.coalesce(func.sum(BackupFile.file_size_bytes), 0)).scalar() or 0
-        folder_f_sum = db.query(func.coalesce(func.sum(FolderBackupFile.file_size_bytes), 0)).scalar() or 0
-        drive_used_bytes = db_f_sum + folder_f_sum
+        drive_used_bytes = total_app_backups_bytes
 
     drive_total_bytes = drive_account.storage_total_bytes if drive_account else None
     drive_avail_bytes = (drive_total_bytes - drive_used_bytes) if drive_total_bytes else None
@@ -114,6 +116,12 @@ def get_dashboard_stats(
         drive_used_formatted=format_bytes(drive_used_bytes),
         drive_available_bytes=drive_avail_bytes,
         drive_available_formatted=format_bytes(drive_avail_bytes) if drive_avail_bytes is not None else "Ilimitado",
+        drive_db_bytes=drive_db_bytes,
+        drive_db_formatted=format_bytes(drive_db_bytes),
+        drive_folder_bytes=drive_folder_bytes,
+        drive_folder_formatted=format_bytes(drive_folder_bytes),
+        total_app_backups_bytes=total_app_backups_bytes,
+        total_app_backups_formatted=format_bytes(total_app_backups_bytes),
         last_backup_time=last_backup_time,
         next_scheduled_backup_time=next_scheduled_time,
         recent_backups=[_format_job(j) for j in recent_jobs],

@@ -182,6 +182,12 @@ export interface DashboardStats {
   drive_used_formatted: string;
   drive_available_bytes?: number;
   drive_available_formatted?: string;
+  drive_db_bytes?: number;
+  drive_db_formatted?: string;
+  drive_folder_bytes?: number;
+  drive_folder_formatted?: string;
+  total_app_backups_bytes?: number;
+  total_app_backups_formatted?: string;
   last_backup_time?: string;
   next_scheduled_backup_time?: string;
   recent_backups: BackupJob[];

@@ -187,7 +187,11 @@ export const GoogleDrivePage: React.FC = () => {
               )}
 
               <div className="flex justify-between text-[11px] text-slate-400 pt-1">
-                <span>Espacio disponible: <strong className="text-emerald-400 font-mono">{storage?.available_formatted || 'Ilimitado'}</strong></span>
+                <span>
+                  Espacio disponible: <strong className="text-emerald-400 font-mono">{storage?.available_formatted || 'Ilimitado'}</strong>
+                  <span className="text-slate-600 mx-1.5">•</span>
+                  Total Usado: <strong className="text-amber-400 font-mono">{storage?.used_formatted || '0 B'}</strong>
+                </span>
                 {!storage?.is_unlimited && <span>{usagePct}% ocupado</span>}
               </div>
             </div>

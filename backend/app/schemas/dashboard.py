@@ -1,4 +1,4 @@
-﻿from typing import Optional, List
+from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel
 from app.schemas.backup import BackupJobResponse
@@ -26,6 +26,12 @@ class DashboardStatsResponse(BaseModel):
     drive_used_formatted: str
     drive_available_bytes: Optional[int] = None
     drive_available_formatted: Optional[str] = None
+    drive_db_bytes: int = 0
+    drive_db_formatted: str = "0 B"
+    drive_folder_bytes: int = 0
+    drive_folder_formatted: str = "0 B"
+    total_app_backups_bytes: int = 0
+    total_app_backups_formatted: str = "0 B"
     last_backup_time: Optional[datetime] = None
     next_scheduled_backup_time: Optional[datetime] = None
     recent_backups: List[BackupJobResponse] = []

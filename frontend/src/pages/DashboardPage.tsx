@@ -1,7 +1,7 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Server, Database, Archive, CheckCircle, AlertTriangle, 
-  HardDrive, Clock, ArrowUpRight, RefreshCw, AlertCircle
+  HardDrive, Clock, ArrowUpRight, RefreshCw, AlertCircle, Folder
 } from 'lucide-react';
 import { api } from '../services/api';
 import { DashboardStats } from '../types';
@@ -41,6 +41,7 @@ export const DashboardPage: React.FC<{ onNavigate: (tab: string) => void }> = ({
     { 
       title: 'Servidores Activos', 
       value: stats?.total_servers || 0, 
+      subtitle: `${stats?.total_databases || 0} Bases de Datos`,
       icon: Server, 
       color: 'blue', 
       onClick: () => onNavigate('servers')
@@ -48,6 +49,7 @@ export const DashboardPage: React.FC<{ onNavigate: (tab: string) => void }> = ({
     { 
       title: 'Bases de Datos', 
       value: stats?.total_databases || 0, 
+      subtitle: `${stats?.total_branches || 0} Sucursales Vinculadas`,
       icon: Database, 
       color: 'indigo', 
       onClick: () => onNavigate('databases')
@@ -63,9 +65,9 @@ export const DashboardPage: React.FC<{ onNavigate: (tab: string) => void }> = ({
     { 
       title: 'Google Drive Usado', 
       value: stats?.drive_used_formatted || '0 B', 
-      subtitle: `Disponible: ${stats?.drive_available_formatted || 'Consultando...'}`,
       icon: HardDrive, 
       color: 'amber', 
+      isDriveCard: true,
       onClick: () => onNavigate('google-drive')
     },
   ];
@@ -95,20 +97,62 @@ export const DashboardPage: React.FC<{ onNavigate: (tab: string) => void }> = ({
             <div
               key={i}
               onClick={card.onClick}
-              className="bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-all cursor-pointer relative overflow-hidden group shadow-lg"
+              className="bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-all cursor-pointer relative overflow-hidden group shadow-lg flex flex-col justify-between"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-400">{card.title}</span>
-                <div className={`p-2 rounded-lg bg-${card.color}-500/10 text-${card.color}-400`}>
-                  <Icon className="w-4 h-4" />
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-400">{card.title}</span>
+                  <div className={`p-2 rounded-lg bg-${card.color}-500/10 text-${card.color}-400`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
                 </div>
-              </div>
-              <div className="mt-3">
-                <div className="text-2xl font-bold text-white tracking-tight">{card.value}</div>
-                {card.subtitle && (
-                  <p className="text-[11px] text-slate-400 mt-1">{card.subtitle}</p>
+
+                {/* Si es la tarjeta de Google Drive, mostramos el desglose DB y Tiendas en el mismo KPI */}
+                {card.isDriveCard ? (
+                  <div className="mt-2.5 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-slate-950/70 p-2 rounded-lg border border-slate-800/80">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold flex items-center gap-1">
+                          <Database className="w-2.5 h-2.5 text-indigo-400" /> Backups DB
+                        </span>
+                        <div className="text-xs font-bold text-indigo-400 font-mono mt-0.5 truncate">
+                          {stats?.drive_db_formatted || '0 B'}
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-950/70 p-2 rounded-lg border border-slate-800/80">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold flex items-center gap-1">
+                          <Folder className="w-2.5 h-2.5 text-blue-400" /> Tiendas
+                        </span>
+                        <div className="text-xs font-bold text-blue-400 font-mono mt-0.5 truncate">
+                          {stats?.drive_folder_formatted || '0 B'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3">
+                    <div className="text-2xl font-bold text-white tracking-tight">{card.value}</div>
+                    {card.subtitle && (
+                      <p className="text-[11px] text-slate-400 mt-1">{card.subtitle}</p>
+                    )}
+                  </div>
                 )}
               </div>
+
+              {/* Si es Google Drive: en disponible dejas el disponible y aladito el total del usado */}
+              {card.isDriveCard ? (
+                <div className="mt-3 pt-2 border-t border-slate-800/70 flex items-center justify-between text-[11px] text-slate-400">
+                  <span className="truncate">
+                    Disp: <strong className="text-emerald-400 font-mono">{stats?.drive_available_formatted || 'Ilimitado'}</strong>
+                  </span>
+                  <span className="text-slate-600 px-1">•</span>
+                  <span className="truncate">
+                    Total Usado: <strong className="text-amber-400 font-mono">{stats?.drive_used_formatted || '0 B'}</strong>
+                  </span>
+                </div>
+              ) : null}
+
               <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <ArrowUpRight className="w-4 h-4 text-slate-500" />
               </div>
