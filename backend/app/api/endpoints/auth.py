@@ -13,7 +13,7 @@ from app.core.security import (
 from app.models import User
 from typing import Optional
 from app.schemas.auth import (
-    Token, LoginRequest, RefreshTokenRequest, PasswordResetRequest, LogoutRequest
+    Token, LoginRequest, RefreshTokenRequest, PasswordResetRequest, LogoutRequest, UnlockRequest
 )
 from app.schemas.user import UserResponse
 from app.services.audit_service import log_audit
@@ -186,33 +186,45 @@ def change_password(
 
     return {"message": "Contraseña actualizada exitosamente."}
 
-@router.post("/logout")
-def logout(
+@router.post("/verify-unlock")
+def verify_unlock_password(
+    unlock_data: UnlockRequest,
     request: Request,
-    logout_data: Optional[LogoutRequest] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    is_admin = current_user.role and current_user.role.name == "ADMIN"
-    if is_admin:
-        if not logout_data or not logout_data.password:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Por seguridad, el administrador debe ingresar su contraseña de acceso para poder cerrar la sesión."
-            )
-        if not verify_password(logout_data.password, current_user.hashed_password):
-            log_audit(
-                db, action="LOGOUT_FAILED",
-                user=current_user,
-                ip_address=get_client_ip(request),
-                status="FAILURE",
-                details={"reason": "Contraseña de confirmación incorrecta"}
-            )
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Contraseña incorrecta. No se autoriza el cierre de sesión del administrador."
-            )
+    """
+    Verifica la contraseña del usuario cuando ha pasado mucho tiempo inactivo (15 min)
+    para permitirle continuar interactuando en la web.
+    """
+    if not verify_password(unlock_data.password, current_user.hashed_password):
+        log_audit(
+            db, action="UNLOCK_FAILED",
+            user=current_user,
+            ip_address=get_client_ip(request),
+            status="FAILURE",
+            details={"reason": "Contraseña de desbloqueo incorrecta"}
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Contraseña incorrecta. Por favor ingrese la contraseña con la que inició sesión."
+        )
 
+    log_audit(
+        db, action="UNLOCK_SUCCESS",
+        user=current_user,
+        ip_address=get_client_ip(request),
+        status="SUCCESS"
+    )
+    return {"message": "Desbloqueo exitoso. Puede continuar navegando.", "unlocked": True}
+
+@router.post("/logout")
+def logout(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Si el administrador desea salir, no se le pide contraseña
     log_audit(
         db, action="LOGOUT",
         user=current_user,

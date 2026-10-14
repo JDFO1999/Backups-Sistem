@@ -26,3 +26,6 @@ class PasswordResetRequest(BaseModel):
 
 class LogoutRequest(BaseModel):
     password: Optional[str] = None
+
+class UnlockRequest(BaseModel):
+    password: str

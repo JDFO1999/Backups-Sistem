@@ -7,26 +7,35 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isLocked: boolean;
   login: (token: string, user: User) => void;
-  logout: (password?: string) => Promise<boolean>;
+  logout: () => Promise<void>;
+  unlockSession: (password: string) => Promise<boolean>;
   loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutos
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isLocked, setIsLocked] = useState(false);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
+    const savedLock = localStorage.getItem('is_locked');
 
     if (savedToken && savedUser) {
       setToken(savedToken);
       try {
         setUser(JSON.parse(savedUser));
+        if (savedLock === 'true') {
+          setIsLocked(true);
+        }
       } catch {
         setUser(null);
       }
@@ -34,23 +43,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(false);
   }, []);
 
+  // Monitor de inactividad: si transcurren 15 minutos sin interacción, bloquear pantalla
+  useEffect(() => {
+    if (!token || isLocked) return;
+
+    let timeoutId: any;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setIsLocked(true);
+        localStorage.setItem('is_locked', 'true');
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+
+    // Eventos de interacción del usuario
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach(event => window.addEventListener(event, resetTimer, { passive: true }));
+
+    resetTimer();
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach(event => window.removeEventListener(event, resetTimer));
+    };
+  }, [token, isLocked]);
+
   const login = (newToken: string, newUser: User) => {
     localStorage.setItem('token', newToken);
     localStorage.setItem('user', JSON.stringify(newUser));
+    localStorage.removeItem('is_locked');
     setToken(newToken);
     setUser(newUser);
+    setIsLocked(false);
   };
 
-  const logout = async (password?: string): Promise<boolean> => {
+  const logout = async () => {
     try {
-      await api.post('/auth/logout', { password: password || undefined });
+      await api.post('/auth/logout');
+    } catch {
+      // ignore
+    } finally {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('is_locked');
       setToken(null);
       setUser(null);
+      setIsLocked(false);
+    }
+  };
+
+  const unlockSession = async (password: string): Promise<boolean> => {
+    try {
+      await api.post('/auth/verify-unlock', { password });
+      setIsLocked(false);
+      localStorage.removeItem('is_locked');
       return true;
     } catch (err: any) {
-      const msg = err.response?.data?.detail || 'Error al cerrar sesión.';
+      const msg = err.response?.data?.detail || 'Contraseña incorrecta.';
       throw new Error(msg);
     }
   };
@@ -64,8 +114,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         isAuthenticated: !!token,
         isAdmin,
+        isLocked,
         login,
         logout,
+        unlockSession,
         loading,
       }}
     >

@@ -12,9 +12,10 @@ import { GoogleDrivePage } from './pages/GoogleDrivePage';
 import { UsersPage } from './pages/UsersPage';
 import { AuditPage } from './pages/AuditPage';
 import { FolderBackupsPage } from './pages/FolderBackupsPage';
+import { LockScreenModal } from './components/LockScreenModal';
 
 const MainLayout: React.FC = () => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, isLocked } = useAuth();
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -74,6 +75,9 @@ const MainLayout: React.FC = () => {
           {currentTab === 'audit' && <AuditPage />}
         </main>
       </div>
+
+      {/* Modal de bloqueo por inactividad (15 min) */}
+      {isLocked && <LockScreenModal />}
     </div>
   );
 };
