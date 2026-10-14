@@ -50,19 +50,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* App Logo & Mobile Close */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-              <Activity className="w-5 h-5" />
+        <div className="h-20 flex items-center justify-between px-5 border-b border-slate-800 bg-slate-950/40">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-11 h-11 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center p-1 shadow-md shadow-blue-500/10 shrink-0">
+              <img src="/alkosto-mascot-logo.png" alt="Alkosto" className="w-full h-full object-contain" />
             </div>
-            <div>
-              <h1 className="font-bold text-white text-base leading-tight">BackupMaster</h1>
-              <span className="text-xs text-blue-400 font-mono">v1.0 • Enterprise</span>
+            <div className="min-w-0">
+              <img src="/alkosto-logo-white.png" alt="Alkosto" className="h-4 object-contain" />
+              <span className="text-[10px] text-blue-400 font-mono uppercase tracking-wider block mt-1">
+                Backup Manager
+              </span>
             </div>
           </div>
           <button
             onClick={() => setIsOpen(false)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 lg:hidden"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 lg:hidden cursor-pointer"
             aria-label="Cerrar menú"
           >
             ✕
@@ -97,7 +99,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* User Card */}
-        <div className="p-4 border-t border-slate-800">
+        <div className="p-4 border-t border-slate-800 bg-slate-950/20">
+          <div className="flex items-center gap-2 mb-2.5 px-2.5 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
+            <img src="/alkosto-logo-color.png" alt="Alkosto" className="h-3 object-contain" />
+            <span className="text-[10px] text-slate-400 font-mono">• Dpto. Sistemas</span>
+          </div>
           <div className="flex items-center gap-3 px-2 py-2 mb-2 rounded-lg bg-slate-800/40">
             <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-semibold text-white">
               {user?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}

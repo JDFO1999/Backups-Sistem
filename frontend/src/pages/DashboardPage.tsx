@@ -76,9 +76,19 @@ export const DashboardPage: React.FC<{ onNavigate: (tab: string) => void }> = ({
     <div className="space-y-6">
       {/* Top action bar */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-white">Panel de Control General</h1>
-          <p className="text-xs text-slate-400">Estado en tiempo real de la infraestructura de backups</p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 p-1 flex items-center justify-center shrink-0 shadow-md">
+            <img src="/alkosto-mascot-logo.png" alt="Alkosto" className="w-full h-full object-contain" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-white">Panel de Control General</h1>
+              <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                ALKOSTO
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">Infraestructura y monitoreo en tiempo real de bases de datos y sucursales</p>
+          </div>
         </div>
         <button
           onClick={() => { setRefreshing(true); fetchStats(); }}

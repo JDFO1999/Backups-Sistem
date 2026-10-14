@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Activity, Lock, Mail, ArrowRight } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -33,14 +33,17 @@ export const Login: React.FC = () => {
       <div className="w-full max-w-md space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-xl shadow-blue-500/25 mb-4">
-            <Activity className="w-7 h-7" />
+          <div className="mx-auto w-24 h-24 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center p-2 shadow-2xl shadow-blue-500/10 mb-3">
+            <img src="/alkosto-mascot-logo.png" alt="Alkosto Mascota" className="w-full h-full object-contain" />
           </div>
-          <h2 className="text-2xl font-bold tracking-tight text-white">
-            Database Backup Manager
+          <div className="flex justify-center mb-1.5">
+            <img src="/alkosto-logo-color.png" alt="Alkosto" className="h-6 sm:h-7 object-contain" />
+          </div>
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">
+            Sistema Centralizado de Respaldos
           </h2>
-          <p className="mt-1 text-sm text-slate-400">
-            Plataforma Enterprise de Respaldos a Google Drive
+          <p className="mt-0.5 text-xs text-slate-400">
+            Bases de Datos Comerciales & Carpetas de Tiendas
           </p>
         </div>
 

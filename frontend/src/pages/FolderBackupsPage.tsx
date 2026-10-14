@@ -259,14 +259,21 @@ export const FolderBackupsPage: React.FC = () => {
     <div className="space-y-6">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2.5">
-            <FolderArchive className="h-6 w-6 text-blue-500" />
-            Respaldo de Carpetas de Tiendas
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Empaquetado y subida en tiempo real de rutas de red UNC (<code className="bg-slate-900 border border-slate-800 text-blue-400 px-1.5 py-0.5 rounded font-mono text-[11px]">\\IP\Sistema\aBC-Soft</code>) directo a Google Drive (Zero-Disk en RAM).
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 p-1 flex items-center justify-center shrink-0 shadow-md">
+            <img src="/alkosto-mascot.png" alt="Alkosto" className="w-full h-full object-contain" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-white">Respaldo de Carpetas de Tiendas</h1>
+              <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                SUCURSALES AK
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Empaquetado y subida en tiempo real de rutas de red UNC (<code className="bg-slate-900 border border-slate-800 text-blue-400 px-1.5 py-0.5 rounded font-mono text-[11px]">\\IP\Sistema\aBC-Soft</code>) directo a Google Drive (Zero-Disk en RAM).
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
