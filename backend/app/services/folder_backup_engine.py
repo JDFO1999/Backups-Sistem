@@ -26,6 +26,7 @@ class FolderBackupEngine:
         branch: Branch,
         drive_token_json: str,
         subfolders: Optional[List[str]] = None,
+        exclude_subfolders: Optional[List[str]] = None,
         root_folder_name: str = "BACKUPS",
         progress_callback: Optional[Callable[[int, str], None]] = None
     ) -> Dict[str, Any]:
@@ -279,24 +280,52 @@ def execute_folder_backup_job_logic(job_id: int) -> None:
             except Exception as be:
                 logger.error(f"Fallo respaldando sucursal {branch.code}: {be}")
                 job.current_step = f"Error en {branch.code}: {be}"
+                job.error_message = f"Error en {branch.code}: {be}"
                 db.commit()
                 # Continue with other branches or record failure
                 continue
 
-        job.status = "COMPLETED"
-        job.progress_percent = 100
-        job.current_step = "Respaldo de carpetas completado exitosamente en Google Drive."
+        all_final_files = db.query(FolderBackupFile).filter(
+            FolderBackupFile.job_id == job.id,
+            FolderBackupFile.status == "COMPLETED"
+        ).all()
+        job.completed_branches = len(all_final_files)
+        job.total_size_bytes = sum((f.file_size_bytes or 0) for f in all_final_files)
+
+        if job.completed_branches == 0 and total_branches > 0:
+            job.status = "FAILED"
+            job.progress_percent = 100
+            if not job.error_message:
+                job.error_message = "No se pudo respaldar ninguna sucursal."
+            job.current_step = f"Error: No se respaldó ninguna de las {total_branches} sucursales."
+        elif job.completed_branches < total_branches:
+            job.status = "COMPLETED"  # Completado parcial
+            job.progress_percent = 100
+            job.current_step = f"Completado parcialmente ({job.completed_branches}/{total_branches} sucursales respaldadas)."
+        else:
+            job.status = "COMPLETED"
+            job.progress_percent = 100
+            job.current_step = "Respaldo de carpetas completado exitosamente en Google Drive."
+
         job.finished_at = datetime.now(timezone.utc)
         db.commit()
 
         try:
             from app.services.alert_service import AlertService
-            AlertService.send_alert(
-                title=f"Respaldo de Carpetas Exitoso #{job.id}",
-                message=f"La tarea '{job.job_name}' completó {job.completed_branches}/{job.total_branches} sucursales.",
-                severity="SUCCESS",
-                details={"Tarea": job.job_name, "Sucursales": f"{job.completed_branches}/{job.total_branches}", "Tamaño Total": f"{round((job.total_size_bytes or 0)/(1024*1024*1024), 2)} GB"}
-            )
+            if job.status == "COMPLETED":
+                AlertService.send_alert(
+                    title=f"Respaldo de Carpetas #{job.id}",
+                    message=f"La tarea '{job.job_name}' completó {job.completed_branches}/{job.total_branches} sucursales.",
+                    severity="SUCCESS" if job.completed_branches == total_branches else "WARNING",
+                    details={"Tarea": job.job_name, "Sucursales": f"{job.completed_branches}/{job.total_branches}", "Tamaño Total": f"{round((job.total_size_bytes or 0)/(1024*1024*1024), 2)} GB"}
+                )
+            else:
+                AlertService.send_alert(
+                    title=f"Fallo en Respaldo de Carpetas #{job.id}",
+                    message=f"La tarea '{job.job_name}' falló: {job.error_message}",
+                    severity="ERROR",
+                    details={"Tarea": job.job_name, "Error": str(job.error_message)[:200]}
+                )
         except Exception:
             pass
 
