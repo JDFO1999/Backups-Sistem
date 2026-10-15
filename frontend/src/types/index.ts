@@ -220,10 +220,12 @@ export interface Branch {
   unc_path: string;
   is_active: boolean;
   is_online: boolean;
+  latency_ms?: number;
   last_checked_at?: string;
   last_backup_at?: string;
   last_backup_size_bytes?: number;
 }
+
 
 export interface BranchSyncResult {
   total: number;

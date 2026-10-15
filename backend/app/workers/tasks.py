@@ -183,6 +183,14 @@ def execute_backup_job_logic(job_id: int):
         except Exception:
             pass
 
+        try:
+            if drive_token_json:
+                from app.services.google_drive_service import GoogleDriveService
+                GoogleDriveService.check_and_alert_quota(drive_token_json, db=db)
+        except Exception:
+            pass
+
+
     except Exception as e:
         logger.error(f"Fallo en BackupJob {job_id}: {str(e)}", exc_info=True)
         if job:

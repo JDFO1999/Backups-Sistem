@@ -95,6 +95,15 @@ def list_branches(
     branches = BranchService.get_branches(db, refresh_online=refresh)
     return branches
 
+@router.post("/branches/heartbeat", response_model=List[BranchResponse])
+def check_branches_heartbeat(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Scan all branches in parallel, measuring latency and SMB path connectivity"""
+    return BranchService.check_all_branches_heartbeat(db)
+
+
 @router.post("/branches/sync", response_model=BranchSyncResponse)
 def sync_branches(
     request: Request,

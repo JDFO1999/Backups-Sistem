@@ -234,11 +234,13 @@ class Branch(Base):
     unc_path = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
     is_online = Column(Boolean, default=False)
+    latency_ms = Column(Integer, nullable=True)
     last_checked_at = Column(DateTime(timezone=True), nullable=True)
     last_backup_at = Column(DateTime(timezone=True), nullable=True)
     last_backup_size_bytes = Column(BigInteger, default=0)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
 
     backup_files = relationship('FolderBackupFile', back_populates='branch', cascade='all, delete-orphan')
 

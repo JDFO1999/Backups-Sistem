@@ -58,14 +58,19 @@ export const FolderBackupsPage: React.FC = () => {
   const fetchBranches = async (refreshPing = false) => {
     try {
       if (refreshPing) setRefreshingPing(true);
-      const res = await foldersApi.getBranches(refreshPing);
+      const res = refreshPing ? await foldersApi.checkHeartbeat() : await foldersApi.getBranches(false);
       setBranches(res.data);
+      if (refreshPing) {
+        const onlineCount = res.data.filter(b => b.is_online).length;
+        toast.success(`Conectividad verificada: ${onlineCount} online, ${res.data.length - onlineCount} inaccesibles.`);
+      }
     } catch (err: any) {
       toast.error('Error al cargar sucursales: ' + (err.response?.data?.detail || err.message));
     } finally {
       if (refreshPing) setRefreshingPing(false);
     }
   };
+
 
   const fetchJobs = async () => {
     try {
@@ -291,11 +296,12 @@ export const FolderBackupsPage: React.FC = () => {
             onClick={() => fetchBranches(true)}
             disabled={refreshingPing}
             className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-slate-900 text-slate-300 hover:text-white rounded-lg border border-slate-800 hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50"
-            title="Verificar estado de conexión en vivo (Ping SMB)"
+            title="Escanear en paralelo la latencia y conectividad de red de todas las tiendas"
           >
             <Wifi className={`h-3.5 w-3.5 text-emerald-400 ${refreshingPing ? 'animate-spin' : ''}`} />
-            {refreshingPing ? 'Comprobando...' : 'Comprobar Red'}
+            {refreshingPing ? 'Comprobando...' : 'Comprobar Conectividad'}
           </button>
+
 
           <button
             onClick={() => openNewBackupModal()}
@@ -551,12 +557,12 @@ export const FolderBackupsPage: React.FC = () => {
                             {branch.is_online ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                                ONLINE
+                                ONLINE {branch.latency_ms !== null && branch.latency_ms !== undefined ? `• ${branch.latency_ms}ms` : ''}
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/10 text-red-400 border border-red-500/20">
                                 <WifiOff className="h-3 w-3" />
-                                OFFLINE
+                                INACCESIBLE
                               </span>
                             )}
                           </td>
@@ -884,6 +890,11 @@ export const FolderBackupsPage: React.FC = () => {
               <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-300 flex items-center gap-2">
                 <Zap className="w-4 h-4 text-blue-400 flex-shrink-0" />
                 <span><strong>Transmisión Directa:</strong> Los datos se empaquetan y suben directo a Google Drive en formato comprimido <code className="font-mono text-blue-200">.tar.gz</code> sin saturar el almacenamiento local.</span>
+              </div>
+
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs text-emerald-300 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <span><strong>Concurrencia & Resiliencia:</strong> Procesa hasta <strong>3 tiendas en paralelo</strong> con <strong>reintentos automáticos</strong> (2 intentos con 30s de pausa ante microcortes de red) y alerta preventiva en Telegram si Drive supera el 85%.</span>
               </div>
             </div>
 

@@ -1,13 +1,16 @@
 import os
+import time
 import json
 import logging
 import tarfile
 import threading
+import concurrent.futures
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional, Callable
 from app.core.database import SessionLocal
 from app.models import Branch, FolderBackupJob, FolderBackupFile, GoogleDriveAccount
 from app.services.google_drive_service import GoogleDriveService
+
 
 # Optimization: Increase tarfile copyfileobj buffer from 16KB to 1MB for high-speed SMB network reads
 _orig_copyfileobj = tarfile.copyfileobj
@@ -198,92 +201,157 @@ def execute_folder_backup_job_logic(job_id: int) -> None:
             except Exception:
                 pass
 
-        total_compressed_bytes = 0
+        # Check Google Drive storage quota at job start (warning if >= 85%)
+        try:
+            GoogleDriveService.check_and_alert_quota(token_json, db=db)
+        except Exception as qe:
+            logger.warning(f"Error checking drive quota at job start: {qe}")
 
-        for idx, branch in enumerate(branches_to_backup, start=1):
-            # Checkpoint: Check if already backed up in this job
-            existing_file = db.query(FolderBackupFile).filter(
-                FolderBackupFile.job_id == job.id,
-                FolderBackupFile.branch_id == branch.id,
-                FolderBackupFile.status == 'COMPLETED'
-            ).first()
+        # Check existing completed files for checkpoint resume
+        existing_completed = db.query(FolderBackupFile).filter(
+            FolderBackupFile.job_id == job.id,
+            FolderBackupFile.status == 'COMPLETED'
+        ).all()
+        already_completed_branch_ids = set(f.branch_id for f in existing_completed)
 
-            if existing_file:
-                logger.info(f"Checkpoint: Sucursal '{branch.code}' ({idx}/{total_branches}) ya respaldada. Omitiendo.")
-                total_compressed_bytes += (existing_file.file_size_bytes or 0)
-                continue
+        pending_branches = [b for b in branches_to_backup if b.id not in already_completed_branch_ids]
+        job.completed_branches = len(already_completed_branch_ids)
+        job.total_size_bytes = sum((f.file_size_bytes or 0) for f in existing_completed)
+        db.commit()
 
-            base_pct = int(((idx - 1) / total_branches) * 90) + 5
-            job.current_step = f"[{idx}/{total_branches}] {branch.code} - {branch.name}: Preparando respaldo..."
-            job.progress_percent = base_pct
-            db.commit()
+        db_lock = threading.Lock()
+        active_branches_lock = threading.Lock()
+        active_branch_codes = []
 
-            def sub_progress(sub_pct: int, msg: str):
+        def update_job_progress():
+            with db_lock:
                 try:
-                    mapped = int(base_pct + (sub_pct * (90 / total_branches) / 100))
-                    job.progress_percent = min(mapped, 95)
-                    job.current_step = f"[{idx}/{total_branches}] {branch.code}: {msg}"
-                    db.commit()
-                except Exception:
-                    pass
+                    db_prog = SessionLocal()
+                    j = db_prog.query(FolderBackupJob).filter(FolderBackupJob.id == job.id).first()
+                    if j:
+                        all_c = db_prog.query(FolderBackupFile).filter(
+                            FolderBackupFile.job_id == job.id,
+                            FolderBackupFile.status == 'COMPLETED'
+                        ).all()
+                        j.completed_branches = len(all_c)
+                        j.total_size_bytes = sum((f.file_size_bytes or 0) for f in all_c)
+                        base_pct = int((len(all_c) / total_branches) * 90) if total_branches > 0 else 5
+                        j.progress_percent = min(max(base_pct, 5), 95)
+                        with active_branches_lock:
+                            active_str = ", ".join(active_branch_codes) if active_branch_codes else "Finalizando..."
+                        j.current_step = f"Respaldando en paralelo (hasta 3 tiendas) [{j.completed_branches}/{total_branches} listas] • En curso: {active_str}"
+                        db_prog.commit()
+                    db_prog.close()
+                except Exception as ex:
+                    logger.debug(f"Progress update error: {ex}")
 
-            try:
-                res = FolderBackupEngine.run_branch_folder_backup(
-                    branch=branch,
-                    drive_token_json=token_json,
-                    subfolders=subfolders,
-                    root_folder_name=drive_account.root_folder_name or "BACKUPS",
-                    progress_callback=sub_progress
-                )
+        def process_branch(branch: Branch):
+            with active_branches_lock:
+                active_branch_codes.append(branch.code)
+            update_job_progress()
 
-                # Ensure no duplicate file record for this branch in this job
-                existing_old = db.query(FolderBackupFile).filter(
-                    FolderBackupFile.job_id == job.id,
-                    FolderBackupFile.branch_id == branch.id
-                ).all()
-                for old_f in existing_old:
-                    if old_f.google_drive_file_id and old_f.google_drive_file_id != res["google_drive_file_id"]:
+            max_retries = 2
+            retry_delay = 30
+            last_error = None
+
+            for attempt in range(1 + max_retries):
+                try:
+                    if attempt > 0:
+                        logger.info(f"Reintento {attempt}/{max_retries} para {branch.code} tras espera de red...")
+
+                    def sub_progress(sub_pct: int, msg: str):
+                        pass
+
+                    res = FolderBackupEngine.run_branch_folder_backup(
+                        branch=branch,
+                        drive_token_json=token_json,
+                        subfolders=subfolders,
+                        root_folder_name=drive_account.root_folder_name or "BACKUPS",
+                        progress_callback=sub_progress
+                    )
+
+                    with db_lock:
+                        db_w = SessionLocal()
                         try:
-                            GoogleDriveService.delete_file(token_json, old_f.google_drive_file_id)
-                        except Exception:
-                            pass
-                    db.delete(old_f)
-                db.flush()
+                            existing_old = db_w.query(FolderBackupFile).filter(
+                                FolderBackupFile.job_id == job.id,
+                                FolderBackupFile.branch_id == branch.id
+                            ).all()
+                            for old_f in existing_old:
+                                if old_f.google_drive_file_id and old_f.google_drive_file_id != res["google_drive_file_id"]:
+                                    try:
+                                        GoogleDriveService.delete_file(token_json, old_f.google_drive_file_id)
+                                    except Exception:
+                                        pass
+                                db_w.delete(old_f)
+                            db_w.flush()
 
-                b_file = FolderBackupFile(
-                    job_id=job.id,
-                    branch_id=branch.id,
-                    file_name=res["file_name"],
-                    file_size_bytes=res["file_size_bytes"],
-                    raw_size_bytes=res["raw_size_bytes"],
-                    sha256_checksum=res["sha256_checksum"],
-                    google_drive_file_id=res["google_drive_file_id"],
-                    google_drive_path=res["google_drive_path"],
-                    subfolders_included=", ".join(subfolders) if subfolders else "Todo",
-                    status="COMPLETED"
-                )
-                db.add(b_file)
-                db.flush()
+                            b_file = FolderBackupFile(
+                                job_id=job.id,
+                                branch_id=branch.id,
+                                file_name=res["file_name"],
+                                file_size_bytes=res["file_size_bytes"],
+                                raw_size_bytes=res["raw_size_bytes"],
+                                sha256_checksum=res["sha256_checksum"],
+                                google_drive_file_id=res["google_drive_file_id"],
+                                google_drive_path=res["google_drive_path"],
+                                subfolders_included=", ".join(subfolders) if subfolders else "Todo",
+                                status="COMPLETED"
+                            )
+                            db_w.add(b_file)
 
-                branch.last_backup_at = datetime.now(timezone.utc)
-                branch.last_backup_size_bytes = res["file_size_bytes"]
-                
-                # Accurately compute job total size and count from current files
-                all_job_files = db.query(FolderBackupFile).filter(
-                    FolderBackupFile.job_id == job.id,
-                    FolderBackupFile.status == "COMPLETED"
-                ).all()
-                job.completed_branches = len(all_job_files)
-                job.total_size_bytes = sum((f.file_size_bytes or 0) for f in all_job_files)
-                db.commit()
+                            b_ref = db_w.query(Branch).filter(Branch.id == branch.id).first()
+                            if b_ref:
+                                b_ref.last_backup_at = datetime.now(timezone.utc)
+                                b_ref.last_backup_size_bytes = res["file_size_bytes"]
 
-            except Exception as be:
-                logger.error(f"Fallo respaldando sucursal {branch.code}: {be}")
-                job.current_step = f"Error en {branch.code}: {be}"
-                job.error_message = f"Error en {branch.code}: {be}"
-                db.commit()
-                # Continue with other branches or record failure
-                continue
+                            db_w.commit()
+                        finally:
+                            db_w.close()
+
+                    last_error = None
+                    break
+                except Exception as be:
+                    last_error = be
+                    if attempt < max_retries:
+                        logger.warning(f"Error temporal en {branch.code}: {be}. Reintentando ({attempt + 1}/{max_retries}) en {retry_delay}s...")
+                        with db_lock:
+                            try:
+                                db_step = SessionLocal()
+                                j = db_step.query(FolderBackupJob).filter(FolderBackupJob.id == job.id).first()
+                                if j:
+                                    j.current_step = f"Reintentando {branch.code} ({attempt + 1}/{max_retries}) en {retry_delay}s tras microcorte..."
+                                    db_step.commit()
+                                db_step.close()
+                            except Exception:
+                                pass
+                        time.sleep(retry_delay)
+                    else:
+                        logger.error(f"Fallo definitivo tras {max_retries} reintentos en {branch.code}: {be}")
+
+            with active_branches_lock:
+                if branch.code in active_branch_codes:
+                    active_branch_codes.remove(branch.code)
+
+            update_job_progress()
+            if last_error:
+                with db_lock:
+                    try:
+                        db_err = SessionLocal()
+                        j = db_err.query(FolderBackupJob).filter(FolderBackupJob.id == job.id).first()
+                        if j:
+                            j.error_message = f"Error en {branch.code}: {last_error}"
+                            db_err.commit()
+                        db_err.close()
+                    except Exception:
+                        pass
+
+        # Execute pending branches concurrently with 3 workers
+        if pending_branches:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                futures = [executor.submit(process_branch, b) for b in pending_branches]
+                concurrent.futures.wait(futures)
+
 
         all_final_files = db.query(FolderBackupFile).filter(
             FolderBackupFile.job_id == job.id,
@@ -328,6 +396,12 @@ def execute_folder_backup_job_logic(job_id: int) -> None:
                 )
         except Exception:
             pass
+
+        try:
+            GoogleDriveService.check_and_alert_quota(token_json, db=db)
+        except Exception:
+            pass
+
 
     except Exception as e:
         logger.error(f"Error general en FolderBackupJob #{job_id}: {e}")

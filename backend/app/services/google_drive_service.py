@@ -113,6 +113,50 @@ class GoogleDriveService:
         }
 
     @classmethod
+    def check_and_alert_quota(cls, token_json: str, db=None, threshold_pct: float = 85.0) -> Optional[Dict[str, Any]]:
+        """
+        Inspects Google Drive quota and sends a preventive alert via AlertService (e.g. Telegram)
+        if storage usage exceeds the threshold (default: 85%).
+        """
+        try:
+            quota = cls.get_storage_quota(token_json)
+            total = quota.get("total_bytes")
+            used = quota.get("used_bytes") or 0
+            if total and total > 0:
+                pct = round((used / total) * 100, 1)
+                available = quota.get("available_bytes") or 0
+                free_gb = round(available / (1024 ** 3), 2)
+                total_gb = round(total / (1024 ** 3), 2)
+                used_gb = round(used / (1024 ** 3), 2)
+
+                if pct >= threshold_pct:
+                    from app.services.alert_service import AlertService
+                    AlertService.send_alert(
+                        title=f"Espacio de Google Drive al {pct}%",
+                        message=f"Atención: La cuenta de Google Drive ha alcanzado el {pct}% de capacidad. Quedan {free_gb} GB libres de {total_gb} GB. Se recomienda depurar respaldos antiguos o ampliar cuota para evitar interrupciones.",
+                        severity="WARNING",
+                        details={
+                            "Uso": f"{pct}%",
+                            "Espacio Usado": f"{used_gb} GB",
+                            "Espacio Disponible": f"{free_gb} GB",
+                            "Capacidad Total": f"{total_gb} GB"
+                        },
+                        db=db
+                    )
+                return {
+                    "total_bytes": total,
+                    "used_bytes": used,
+                    "available_bytes": available,
+                    "usage_pct": pct,
+                    "alert_triggered": pct >= threshold_pct
+                }
+            return quota
+        except Exception as e:
+            logger.warning(f"No se pudo verificar la cuota de Google Drive: {e}")
+            return None
+
+
+    @classmethod
     def execute_with_retry(cls, request_callable, max_retries: int = 10):
         """Execute a Google API request with exponential backoff retry on network/DNS drops"""
         import time

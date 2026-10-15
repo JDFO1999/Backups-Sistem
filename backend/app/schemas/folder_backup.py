@@ -10,11 +10,13 @@ class BranchResponse(BaseModel):
     unc_path: str
     is_active: bool
     is_online: bool
+    latency_ms: Optional[int] = None
     last_checked_at: Optional[datetime] = None
     last_backup_at: Optional[datetime] = None
     last_backup_size_bytes: Optional[int] = 0
 
     class Config:
+
         from_attributes = True
 
 class BranchSyncResponse(BaseModel):
