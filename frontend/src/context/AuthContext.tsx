@@ -90,6 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(null);
       setUser(null);
       setIsLocked(false);
+      window.location.href = '/login';
     }
   };
 

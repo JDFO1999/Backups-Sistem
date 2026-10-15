@@ -23,30 +23,18 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Ignorar errores de contraseña incorrecta en confirmación de logout, login o desbloqueo
+      // Ignorar 401 en login o en el modal de verificación de desbloqueo (para no cerrar la pantalla si se equivoca de clave)
       const url = error.config?.url || '';
-      if (url.includes('/auth/login') || url.includes('/auth/logout') || url.includes('/auth/verify-unlock')) {
+      if (url.includes('/auth/login') || url.includes('/auth/verify-unlock')) {
         return Promise.reject(error);
       }
 
-      // Si el usuario actual guardado es ADMIN, no lo sacamos inmediatamente
-      const rawUser = localStorage.getItem('user');
-      let isAdmin = false;
-      try {
-        if (rawUser) {
-          const parsed = JSON.parse(rawUser);
-          isAdmin = parsed?.role?.name === 'ADMIN' || parsed?.role === 'ADMIN';
-        }
-      } catch {
-        isAdmin = false;
-      }
-
-      if (!isAdmin) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
-        }
+      // Si cualquier otra petición protegida da 401, el token expiró o se cerró sesión: limpiar y redirigir limpiamente a login
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('is_locked');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
       }
     }
     return Promise.reject(error);
