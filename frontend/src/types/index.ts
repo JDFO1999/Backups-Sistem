@@ -281,3 +281,62 @@ export interface FolderBackupStats {
   disk_c_used_bytes: number;
   storage_mode: string;
 }
+
+export interface NotificationConfig {
+  id: number;
+  provider: 'TELEGRAM' | 'EMAIL' | 'WHATSAPP';
+  is_enabled: boolean;
+  telegram_bot_token_masked?: string;
+  telegram_chat_id?: string;
+  telegram_configured: boolean;
+  email_smtp_host?: string;
+  email_smtp_port: number;
+  email_sender?: string;
+  email_recipients?: string;
+  email_password_configured: boolean;
+  email_use_tls: boolean;
+  whatsapp_account_sid_masked?: string;
+  whatsapp_auth_token_configured: boolean;
+  whatsapp_from?: string;
+  whatsapp_to?: string;
+  notify_on_start: boolean;
+  notify_on_success: boolean;
+  notify_on_error: boolean;
+  updated_at?: string;
+}
+
+export interface NotificationConfigUpdate {
+  provider?: string;
+  is_enabled?: boolean;
+  telegram_bot_token?: string;
+  telegram_chat_id?: string;
+  email_smtp_host?: string;
+  email_smtp_port?: number;
+  email_sender?: string;
+  email_recipients?: string;
+  email_password?: string;
+  email_use_tls?: boolean;
+  whatsapp_account_sid?: string;
+  whatsapp_auth_token?: string;
+  whatsapp_from?: string;
+  whatsapp_to?: string;
+  notify_on_start?: boolean;
+  notify_on_success?: boolean;
+  notify_on_error?: boolean;
+}
+
+export interface TestNotificationRequest {
+  provider?: string;
+  telegram_bot_token?: string;
+  telegram_chat_id?: string;
+  email_smtp_host?: string;
+  email_smtp_port?: number;
+  email_sender?: string;
+  email_recipients?: string;
+  email_password?: string;
+  whatsapp_account_sid?: string;
+  whatsapp_auth_token?: string;
+  whatsapp_from?: string;
+  whatsapp_to?: string;
+}
+

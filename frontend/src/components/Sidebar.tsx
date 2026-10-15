@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   LayoutDashboard, Server, Database, Archive, FolderArchive,
-  Calendar, HardDrive, Users, ShieldAlert, LogOut, Activity
+  Calendar, HardDrive, Bell, Users, ShieldAlert, LogOut, Activity
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -28,11 +28,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { name: 'Carpetas Tiendas', id: 'folders', icon: FolderArchive },
     { name: 'Programaciones', id: 'schedules', icon: Calendar },
     { name: 'Google Drive', id: 'google-drive', icon: HardDrive },
+    { name: 'Notificaciones', id: 'notifications', icon: Bell },
     ...(isAdmin ? [
       { name: 'Usuarios', id: 'users', icon: Users },
       { name: 'Auditoría', id: 'audit', icon: ShieldAlert },
     ] : [])
   ];
+
 
   return (
     <>

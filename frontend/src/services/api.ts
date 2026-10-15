@@ -41,7 +41,7 @@ api.interceptors.response.use(
   }
 );
 
-import { Branch, BranchSyncResult, FolderBackupJob, FolderBackupCreate, FolderBackupStats, BackupSchedule } from '../types';
+import { Branch, BranchSyncResult, FolderBackupJob, FolderBackupCreate, FolderBackupStats, BackupSchedule, NotificationConfig, NotificationConfigUpdate, TestNotificationRequest } from '../types';
 
 export const foldersApi = {
   getStats: () => api.get<FolderBackupStats>('/folders/stats'),
@@ -68,5 +68,12 @@ export const schedulesApi = {
   trigger: (id: number) => api.post<{ message: string; job_id?: number }>(`/schedules/${id}/trigger`),
   delete: (id: number) => api.delete(`/schedules/${id}`),
 };
+
+export const notificationsApi = {
+  getConfig: () => api.get<NotificationConfig>('/notifications/config'),
+  saveConfig: (data: NotificationConfigUpdate) => api.post<NotificationConfig>('/notifications/config', data),
+  testNotification: (data: TestNotificationRequest) => api.post<{ ok: boolean; message: string }>('/notifications/test', data),
+};
+
 
 

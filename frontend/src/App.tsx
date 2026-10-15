@@ -12,6 +12,7 @@ import { GoogleDrivePage } from './pages/GoogleDrivePage';
 import { UsersPage } from './pages/UsersPage';
 import { AuditPage } from './pages/AuditPage';
 import { FolderBackupsPage } from './pages/FolderBackupsPage';
+import { NotificationSettingsPage } from './pages/NotificationSettingsPage';
 import { LockScreenModal } from './components/LockScreenModal';
 
 const MainLayout: React.FC = () => {
@@ -40,6 +41,7 @@ const MainLayout: React.FC = () => {
       case 'folders': return 'Respaldo de Carpetas de Tiendas (Rutas UNC)';
       case 'schedules': return 'Programación Automática y Retención';
       case 'google-drive': return 'Configuración de Google Drive';
+      case 'notifications': return 'Configuración de Alertas & Notificaciones';
       case 'users': return 'Administración de Usuarios y Permisos';
       case 'audit': return 'Bitácora de Auditoría';
       default: return 'Alkosto - Gestión de Respaldos';
@@ -71,10 +73,12 @@ const MainLayout: React.FC = () => {
           {currentTab === 'folders' && <FolderBackupsPage />}
           {currentTab === 'schedules' && <SchedulesPage />}
           {currentTab === 'google-drive' && <GoogleDrivePage />}
+          {currentTab === 'notifications' && <NotificationSettingsPage />}
           {currentTab === 'users' && <UsersPage />}
           {currentTab === 'audit' && <AuditPage />}
         </main>
       </div>
+
 
       {/* Modal de bloqueo por inactividad (15 min) */}
       {isLocked && <LockScreenModal />}

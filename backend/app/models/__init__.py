@@ -283,4 +283,38 @@ class FolderBackupFile(Base):
     job = relationship('FolderBackupJob', back_populates='backup_files')
     branch = relationship('Branch', back_populates='backup_files')
 
+class NotificationConfig(Base):
+    __tablename__ = 'notification_configs'
+
+    id = Column(Integer, primary_key=True, index=True)
+    provider = Column(String(30), default='TELEGRAM')  # TELEGRAM, EMAIL, WHATSAPP
+    is_enabled = Column(Boolean, default=True)
+
+    # Telegram
+    telegram_bot_token_encrypted = Column(Text, nullable=True)
+    telegram_chat_id = Column(String(100), nullable=True)
+
+    # Email SMTP
+    email_smtp_host = Column(String(150), nullable=True)
+    email_smtp_port = Column(Integer, default=587)
+    email_sender = Column(String(150), nullable=True)
+    email_recipients = Column(Text, nullable=True)
+    email_password_encrypted = Column(Text, nullable=True)
+    email_use_tls = Column(Boolean, default=True)
+
+    # WhatsApp
+    whatsapp_account_sid = Column(String(100), nullable=True)
+    whatsapp_auth_token_encrypted = Column(Text, nullable=True)
+    whatsapp_from = Column(String(50), nullable=True)
+    whatsapp_to = Column(String(50), nullable=True)
+
+    # Event Triggers
+    notify_on_start = Column(Boolean, default=False)
+    notify_on_success = Column(Boolean, default=True)
+    notify_on_error = Column(Boolean, default=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 
