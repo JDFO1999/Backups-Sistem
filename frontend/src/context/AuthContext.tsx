@@ -96,7 +96,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const unlockSession = async (password: string): Promise<boolean> => {
     try {
-      await api.post('/auth/verify-unlock', { password });
+      const res = await api.post('/auth/verify-unlock', { 
+        password,
+        email: user?.email 
+      });
+      if (res.data?.access_token) {
+        localStorage.setItem('token', res.data.access_token);
+        setToken(res.data.access_token);
+      }
+      if (res.data?.user) {
+        localStorage.setItem('user', JSON.stringify(res.data.user));
+        setUser(res.data.user);
+      }
       setIsLocked(false);
       localStorage.removeItem('is_locked');
       return true;
@@ -105,6 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error(msg);
     }
   };
+
 
   const isAdmin = user?.role?.name === 'ADMIN' || (user as any)?.role === 'ADMIN';
 

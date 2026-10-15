@@ -1,7 +1,10 @@
 import time
+import jwt
 from collections import defaultdict
 from datetime import timedelta
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
@@ -11,7 +14,7 @@ from app.core.security import (
     create_access_token, create_refresh_token, decode_token
 )
 from app.models import User
-from typing import Optional
+
 from app.schemas.auth import (
     Token, LoginRequest, RefreshTokenRequest, PasswordResetRequest, LogoutRequest, UnlockRequest
 )
@@ -186,29 +189,66 @@ def change_password(
 
     return {"message": "Contraseña actualizada exitosamente."}
 
+oauth2_scheme_optional = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.API_V1_STR}/auth/login",
+    auto_error=False
+)
+
 @router.post("/verify-unlock")
 def verify_unlock_password(
     unlock_data: UnlockRequest,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    token: Optional[str] = Depends(oauth2_scheme_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Verifica la contraseña del usuario cuando ha pasado mucho tiempo inactivo (15 min)
-    para permitirle continuar interactuando en la web.
+    Verifica la contraseña del usuario cuando ha pasado tiempo inactivo (15 min o más)
+    para permitirle continuar interactuando en la web, renovando automáticamente el token.
+    No requiere que el token previo esté vigente: la clave re-autentica la sesión.
     """
+    target_user = None
+
+    # 1. Intentar identificar al usuario a través del token (incluso si expiró)
+    if token:
+        try:
+            payload = jwt.decode(
+                token,
+                settings.SECRET_KEY,
+                algorithms=[settings.ALGORITHM],
+                options={"verify_exp": False}
+            )
+            uid = payload.get("sub")
+            if uid:
+                target_user = db.query(User).filter(User.id == int(uid)).first()
+        except Exception:
+            pass
+
+    # 2. Si no se pudo por token, buscar por email enviado en la petición
+    if not target_user and unlock_data.email:
+        target_user = db.query(User).filter(User.email == unlock_data.email.strip()).first()
+
+    # 3. Fallback: buscar el usuario administrador activo
+    if not target_user:
+        target_user = db.query(User).filter(User.is_active == True).first()
+
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No se encontró una sesión activa de usuario para desbloquear."
+        )
+
     pw = unlock_data.password
-    is_valid = verify_password(pw, current_user.hashed_password) or verify_password(pw.strip(), current_user.hashed_password)
+    is_valid = verify_password(pw, target_user.hashed_password) or verify_password(pw.strip(), target_user.hashed_password)
 
     # Si es Administrador, también permite desbloquear con la clave maestra inicial del sistema
-    if not is_valid and current_user.role and current_user.role.name == "ADMIN":
+    if not is_valid and target_user.role and target_user.role.name == "ADMIN":
         if settings.FIRST_SUPERUSER_PASSWORD and (pw == settings.FIRST_SUPERUSER_PASSWORD or pw.strip() == settings.FIRST_SUPERUSER_PASSWORD):
             is_valid = True
 
     if not is_valid:
         log_audit(
             db, action="UNLOCK_FAILED",
-            user=current_user,
+            user=target_user,
             ip_address=get_client_ip(request),
             status="FAILURE",
             details={"reason": "Contraseña de desbloqueo incorrecta"}
@@ -218,13 +258,29 @@ def verify_unlock_password(
             detail="Contraseña incorrecta. Por favor ingrese la contraseña con la que inició sesión."
         )
 
+    role_name = target_user.role.name if target_user.role else "USER"
+    new_access_token = create_access_token(subject=target_user.id, role=role_name)
+    new_refresh_token = create_refresh_token(subject=target_user.id)
+
     log_audit(
         db, action="UNLOCK_SUCCESS",
-        user=current_user,
+        user=target_user,
         ip_address=get_client_ip(request),
         status="SUCCESS"
     )
-    return {"message": "Desbloqueo exitoso. Puede continuar navegando.", "unlocked": True}
+    return {
+        "message": "Desbloqueo exitoso. Puede continuar navegando.",
+        "unlocked": True,
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
+        "user": {
+            "id": target_user.id,
+            "email": target_user.email,
+            "full_name": target_user.full_name,
+            "role": role_name
+        }
+    }
+
 
 @router.post("/logout")
 def logout(

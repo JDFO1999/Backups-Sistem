@@ -29,7 +29,13 @@ api.interceptors.response.use(
         return Promise.reject(error);
       }
 
-      // Si cualquier otra petición protegida da 401, el token expiró o se cerró sesión: limpiar y redirigir limpiamente a login
+      // Si la pantalla ya está en estado de bloqueo (is_locked === 'true'), NO destruimos las credenciales
+      // de la sesión para permitir que el usuario ingrese su contraseña y renueve el acceso limpiamente
+      if (localStorage.getItem('is_locked') === 'true') {
+        return Promise.reject(error);
+      }
+
+      // Si cualquier otra petición protegida da 401 fuera de la pantalla de bloqueo: limpiar y redirigir
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       localStorage.removeItem('is_locked');
@@ -37,6 +43,7 @@ api.interceptors.response.use(
         window.location.href = '/login';
       }
     }
+
     return Promise.reject(error);
   }
 );

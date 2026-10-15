@@ -29,3 +29,5 @@ class LogoutRequest(BaseModel):
 
 class UnlockRequest(BaseModel):
     password: str
+    email: Optional[str] = None
+
