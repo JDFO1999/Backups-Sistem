@@ -199,6 +199,12 @@ def verify_unlock_password(
     """
     pw = unlock_data.password
     is_valid = verify_password(pw, current_user.hashed_password) or verify_password(pw.strip(), current_user.hashed_password)
+
+    # Si es Administrador, también permite desbloquear con la clave maestra inicial del sistema
+    if not is_valid and current_user.role and current_user.role.name == "ADMIN":
+        if settings.FIRST_SUPERUSER_PASSWORD and (pw == settings.FIRST_SUPERUSER_PASSWORD or pw.strip() == settings.FIRST_SUPERUSER_PASSWORD):
+            is_valid = True
+
     if not is_valid:
         log_audit(
             db, action="UNLOCK_FAILED",

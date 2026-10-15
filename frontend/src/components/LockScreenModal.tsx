@@ -6,13 +6,13 @@ export const LockScreenModal: React.FC = () => {
   const { user, unlockSession, logout } = useAuth();
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [capsLockActive, setCapsLockActive] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
   const [error, setError] = useState('');
 
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanPass = password.trim();
-    if (!cleanPass) {
+    if (!password) {
       setError('Por favor ingrese su contraseña.');
       return;
     }
@@ -20,10 +20,10 @@ export const LockScreenModal: React.FC = () => {
     setError('');
 
     try {
-      await unlockSession(cleanPass);
+      await unlockSession(password);
       setPassword('');
     } catch (err: any) {
-      setError(err.message || 'Contraseña incorrecta.');
+      setError(err.message || 'Contraseña incorrecta. Verifique mayúsculas o espacios.');
     } finally {
       setUnlocking(false);
     }
@@ -85,6 +85,8 @@ export const LockScreenModal: React.FC = () => {
                 autoFocus
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => setCapsLockActive(e.getModifierState('CapsLock'))}
+                onKeyUp={(e) => setCapsLockActive(e.getModifierState('CapsLock'))}
                 placeholder="Ingresa tu contraseña"
                 className="w-full pl-10 pr-10 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
               />
@@ -97,6 +99,11 @@ export const LockScreenModal: React.FC = () => {
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            {capsLockActive && (
+              <p className="text-[11px] text-amber-400 mt-1 flex items-center gap-1 font-medium animate-in fade-in">
+                <span>⚠️</span> Bloq Mayús (Caps Lock) está activado
+              </p>
+            )}
             {error && (
               <p className="text-xs text-red-400 mt-1.5 font-medium">{error}</p>
             )}
