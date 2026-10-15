@@ -89,6 +89,23 @@ def execute_backup_job_logic(job_id: int):
         if total_dbs == 0:
             raise RuntimeError("No se encontraron bases de datos seleccionadas para respaldar.")
 
+        # Send start alert
+        try:
+            from app.services.alert_service import AlertService
+            AlertService.send_alert(
+                title=f"🚀 INICIO DE RESPALDO: Base de Datos #{job.id}",
+                message=f"Se ha iniciado el respaldo del servidor '{server.name}'. Total BDs a respaldar: {total_dbs}.",
+                severity="START",
+                details={
+                    "Servidor": server.name,
+                    "Total Bases de Datos": f"{total_dbs}",
+                    "Tipo": job.trigger_type,
+                    "Destino": f"Google Drive ({drive_account.root_folder_name or 'BACKUPS'})"
+                }
+            )
+        except Exception as se:
+            logger.warning(f"Error sending start alert: {se}")
+
         total_original = 0
         total_compressed = 0
 
@@ -286,10 +303,10 @@ def trigger_single_schedule(db, sched: BackupSchedule, user_id=None):
         return job
 
 def check_scheduled_backups():
-    """Checks for due automated schedules and triggers their jobs"""
+    """Checks for due automated schedules and triggers their jobs using local system time"""
     db = SessionLocal()
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now()
         schedules = db.query(BackupSchedule).filter(
             BackupSchedule.is_active == True,
             BackupSchedule.next_run_at <= now

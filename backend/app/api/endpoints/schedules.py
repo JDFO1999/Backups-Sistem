@@ -74,8 +74,8 @@ def create_schedule(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    # Validate cron expression
-    now = datetime.now(timezone.utc)
+    # Validate cron expression using local system time
+    now = datetime.now()
     try:
         c = croniter(sched_in.cron_expression, now)
         next_run = c.get_next(datetime)
@@ -166,7 +166,7 @@ def update_schedule(
         sched.target_subfolders = json.dumps(sched_in.target_subfolders)
 
     if sched_in.cron_expression:
-        now = datetime.now(timezone.utc)
+        now = datetime.now()
         try:
             c = croniter(sched_in.cron_expression, now)
             sched.next_run_at = c.get_next(datetime)
@@ -238,7 +238,7 @@ def toggle_schedule_active(
 
     sched.is_active = not sched.is_active
     if sched.is_active:
-        now = datetime.now(timezone.utc)
+        now = datetime.now()
         try:
             c = croniter(sched.cron_expression, now)
             sched.next_run_at = c.get_next(datetime)

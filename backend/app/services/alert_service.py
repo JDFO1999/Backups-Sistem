@@ -70,13 +70,15 @@ class AlertService:
             "SUCCESS": "✅",
             "ERROR": "🚨",
             "WARNING": "⚠️",
-            "INFO": "ℹ️"
+            "INFO": "ℹ️",
+            "START": "🚀"
         }
         emoji = severity_emojis.get(severity.upper(), "📢")
 
         # Build clean HTML message
+        header_title = title if title.startswith("🚀") or title.startswith("✅") or title.startswith("🚨") or title.startswith("⚠️") or title.startswith("ℹ️") else f"{emoji} {title}"
         lines = [
-            f"<b>{emoji} ALERTA: {title}</b>",
+            f"<b>{header_title}</b>",
             f"<i>{message}</i>",
             ""
         ]
@@ -223,7 +225,7 @@ class AlertService:
 
         # Filter by trigger preferences
         sev = severity.upper()
-        if sev == "INFO" and not config.notify_on_start:
+        if sev in ("INFO", "START") and not config.notify_on_start:
             return False
         if sev == "SUCCESS" and not config.notify_on_success:
             return False

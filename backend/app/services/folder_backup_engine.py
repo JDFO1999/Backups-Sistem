@@ -201,6 +201,24 @@ def execute_folder_backup_job_logic(job_id: int) -> None:
             except Exception:
                 pass
 
+        # Send start alert to Telegram / configured channels
+        try:
+            from app.services.alert_service import AlertService
+            scope_desc = "Personalizado" if subfolders else "Crítico / Estándar"
+            AlertService.send_alert(
+                title=f"🚀 INICIO DE RESPALDO: Carpetas de Tiendas #{job.id}",
+                message=f"Se ha iniciado la tarea '{job.job_name}'. Se procesarán {total_branches} sucursales en paralelo (concurrencia x3) con reintentos inteligentes.",
+                severity="START",
+                details={
+                    "Tarea": job.job_name,
+                    "Total Tiendas": f"{total_branches}",
+                    "Alcance": scope_desc,
+                    "Destino": f"Google Drive ({drive_account.root_folder_name or 'BACKUPS'}/CARPETAS_SUCURSALES)"
+                }
+            )
+        except Exception as se:
+            logger.warning(f"Error sending start alert: {se}")
+
         # Check Google Drive storage quota at job start (warning if >= 85%)
         try:
             GoogleDriveService.check_and_alert_quota(token_json, db=db)
