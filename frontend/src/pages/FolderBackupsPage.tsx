@@ -259,19 +259,19 @@ export const FolderBackupsPage: React.FC = () => {
     <div className="space-y-6">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 p-1 flex items-center justify-center shrink-0 shadow-md">
-            <img src="/alkosto-mascot.png" alt="Alkosto" className="w-full h-full object-contain" />
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-purple-500/20 via-purple-600/15 to-slate-900 border border-purple-500/40 flex items-center justify-center shrink-0 shadow-lg shadow-purple-500/20 text-purple-400">
+            <FolderArchive className="w-6 h-6 sm:w-7 sm:h-7 text-purple-400" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-white">Respaldo de Carpetas de Tiendas</h1>
-              <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+              <h1 className="text-lg sm:text-xl font-bold text-white">Respaldo de Carpetas de Tiendas</h1>
+              <span className="hidden sm:inline-block px-2.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30">
                 SUCURSALES AK
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Empaquetado y subida en tiempo real de rutas de red UNC (<code className="bg-slate-900 border border-slate-800 text-blue-400 px-1.5 py-0.5 rounded font-mono text-[11px]">\\IP\Sistema\aBC-Soft</code>) directo a Google Drive (Zero-Disk en RAM).
+              Empaquetado y subida en tiempo real de rutas de red UNC (<code className="bg-slate-900 border border-slate-800 text-blue-400 px-1.5 py-0.5 rounded font-mono text-[11px]">\\IP\Sistema\aBC-Soft</code>) directo a Google Drive.
             </p>
           </div>
         </div>
@@ -883,7 +883,7 @@ export const FolderBackupsPage: React.FC = () => {
 
               <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-300 flex items-center gap-2">
                 <Zap className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                <span><strong>Zero-Disk Streaming:</strong> Los datos viajan por RAM directo a Google Drive en <code className="font-mono text-blue-200">.tar.gz</code> sin consumir disco local C:.</span>
+                <span><strong>Transmisión Directa:</strong> Los datos se empaquetan y suben directo a Google Drive en formato comprimido <code className="font-mono text-blue-200">.tar.gz</code> sin saturar el almacenamiento local.</span>
               </div>
             </div>
 

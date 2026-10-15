@@ -642,7 +642,7 @@ export const SchedulesPage: React.FC = () => {
                       </div>
                     </div>
                     <p className="text-[11px] text-slate-400 mt-2">
-                      Empaqueta .tar.gz en streaming (Zero-Disk) a Google Drive.
+                      Empaqueta .tar.gz y sube directo a Google Drive.
                     </p>
                   </div>
                 </div>

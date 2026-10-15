@@ -197,7 +197,9 @@ def verify_unlock_password(
     Verifica la contraseña del usuario cuando ha pasado mucho tiempo inactivo (15 min)
     para permitirle continuar interactuando en la web.
     """
-    if not verify_password(unlock_data.password, current_user.hashed_password):
+    pw = unlock_data.password
+    is_valid = verify_password(pw, current_user.hashed_password) or verify_password(pw.strip(), current_user.hashed_password)
+    if not is_valid:
         log_audit(
             db, action="UNLOCK_FAILED",
             user=current_user,

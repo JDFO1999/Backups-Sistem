@@ -154,7 +154,7 @@ if ($LASTEXITCODE -eq 0 -and (Test-Path $bak)) {{
         progress_callback: Optional[Callable[[int, str], None]] = None
     ) -> Dict[str, Any]:
         """
-        Execute database backup with ZERO DISK USAGE on the host machine.
+        Execute database backup directly to Google Drive.
         The remote dump stream is piped over SSH directly into Google Drive's
         resumable upload endpoint in 8MB in-memory RAM chunks.
         """
@@ -208,7 +208,7 @@ if ($LASTEXITCODE -eq 0 -and (Test-Path $bak)) {{
             )
 
             if progress_callback:
-                progress_callback(20, f"Iniciando volcado y transmisión en tiempo real de {database.name} a Google Drive (Zero-Disk)...")
+                progress_callback(20, f"Iniciando volcado y transmisión en tiempo real de {database.name} a Google Drive...")
 
             stdin, stdout, stderr = ssh_client.exec_command(dump_cmd, bufsize=1024 * 1024)
 

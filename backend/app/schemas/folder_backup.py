@@ -1,4 +1,4 @@
-﻿from datetime import datetime
+from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
 
@@ -72,4 +72,4 @@ class FolderBackupStatsResponse(BaseModel):
     total_drive_bytes: int
     total_raw_bytes: int
     disk_c_used_bytes: int = 0
-    storage_mode: str = 'Zero-Disk RAM Streaming directo a Drive por Sucursal'
+    storage_mode: str = 'Transmisión directa a Google Drive por Sucursal'

@@ -307,7 +307,7 @@ class GoogleDriveService:
     @classmethod
     def get_download_stream(cls, token_json: str, file_id: str, chunk_size: int = 8 * 1024 * 1024):
         """
-        Stream binary data directly from Google Drive in chunks with ZERO disk usage on C:.
+        Stream binary data directly from Google Drive in chunks.
         Yields chunk by chunk for HTTP streaming responses.
         """
         from googleapiclient.http import MediaIoBaseDownload
@@ -369,8 +369,8 @@ class GoogleDriveService:
         progress_callback=None
     ) -> Dict[str, Any]:
         """
-        Stream binary data directly into Google Drive with ZERO disk usage.
-        Chunks of 8MB are buffered in RAM, compressed in real-time with gzip,
+        Stream binary data directly into Google Drive in real-time.
+        Chunks of 8MB are buffered, compressed in real-time with gzip,
         and sent to Google Drive's resumable upload endpoint.
         """
         import time

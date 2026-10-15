@@ -82,7 +82,7 @@ def get_folder_backup_stats(
         total_drive_bytes=int(total_drive_bytes),
         total_raw_bytes=int(total_raw_bytes),
         disk_c_used_bytes=0,
-        storage_mode="Zero-Disk RAM Streaming directo a Drive por Sucursal"
+        storage_mode="Transmisión directa a Google Drive por Sucursal"
     )
 
 @router.get("/branches", response_model=List[BranchResponse])
@@ -319,8 +319,7 @@ def download_folder_backup_file(
     db: Session = Depends(get_db)
 ):
     """
-    Stream a backed up .tar.gz archive directly from Google Drive to the browser
-    with ZERO disk consumption on drive C:.
+    Stream a backed up .tar.gz archive directly from Google Drive to the browser.
     Supports Bearer header and ?token= query parameter for direct browser links.
     """
     auth_token = None
