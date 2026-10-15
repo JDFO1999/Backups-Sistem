@@ -13,6 +13,22 @@ from app.models import NotificationConfig
 
 logger = logging.getLogger(__name__)
 
+def normalize_telegram_chat_id(chat_id: str) -> str:
+    if not chat_id:
+        return ""
+    val = chat_id.strip()
+    if "telegram.org" in val and "#" in val:
+        val = val.split("#")[-1]
+    if val.startswith("@"):
+        return val
+    if val.startswith("-100"):
+        return val
+    if val.startswith("-") and val[1:].isdigit():
+        return f"-100{val[1:]}"
+    if val.isdigit() and len(val) >= 9:
+        return f"-100{val}"
+    return val
+
 class AlertService:
     @classmethod
     def get_config(cls, db=None) -> Optional[NotificationConfig]:
@@ -46,7 +62,8 @@ class AlertService:
             return False, "Token de Bot o Chat ID / Canal no especificado."
 
         clean_token = token.strip()
-        clean_chat_id = chat_id.strip()
+        clean_chat_id = normalize_telegram_chat_id(chat_id)
+
 
         # Emojis by severity
         severity_emojis = {

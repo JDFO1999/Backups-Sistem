@@ -11,9 +11,10 @@ from app.schemas.notification import (
     NotificationConfigUpdate,
     TestNotificationRequest
 )
-from app.services.alert_service import AlertService
+from app.services.alert_service import AlertService, normalize_telegram_chat_id
 
 router = APIRouter()
+
 
 def _mask_secret(val: str, prefix_len: int = 4, suffix_len: int = 3) -> str:
     if not val:
@@ -94,7 +95,8 @@ def save_notification_config(
     if payload.telegram_bot_token and "..." not in payload.telegram_bot_token:
         cfg.telegram_bot_token_encrypted = encrypt_secret(payload.telegram_bot_token.strip())
     if payload.telegram_chat_id is not None:
-        cfg.telegram_chat_id = payload.telegram_chat_id.strip()
+        cfg.telegram_chat_id = normalize_telegram_chat_id(payload.telegram_chat_id)
+
 
     # Email
     cfg.email_smtp_host = payload.email_smtp_host.strip() if payload.email_smtp_host else None
