@@ -47,7 +47,8 @@ class GoogleDriveService:
 
     @staticmethod
     def exchange_code(code: str) -> Dict[str, Any]:
-        """Exchange auth code for tokens and extract account email"""
+        """Exchange auth code for tokens and extract account email with resilient DNS/network retries"""
+        import time
         flow = Flow.from_client_config(
             {
                 "web": {
@@ -62,7 +63,23 @@ class GoogleDriveService:
             redirect_uri=settings.GOOGLE_REDIRECT_URI,
             autogenerate_code_verifier=False
         )
-        flow.fetch_token(code=code)
+
+        max_attempts = 4
+        last_error = None
+        for attempt in range(1, max_attempts + 1):
+            try:
+                flow.fetch_token(code=code)
+                break
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Error al contactar oauth2.googleapis.com (intento {attempt}/{max_attempts}): {e}")
+                if attempt < max_attempts:
+                    time.sleep(1.5 * attempt)
+                else:
+                    raise RuntimeError(
+                        f"No se pudo conectar con el servidor de autenticación de Google tras {max_attempts} intentos (DNS o red inestable): {last_error}"
+                    ) from last_error
+
         creds = flow.credentials
         
         token_info = {
@@ -74,10 +91,14 @@ class GoogleDriveService:
             "scopes": creds.scopes
         }
 
-        # Retrieve user email
-        drive_service = build('drive', 'v3', credentials=creds)
-        about = drive_service.about().get(fields="user").execute()
-        user_email = about.get("user", {}).get("emailAddress", "unknown@gmail.com")
+        # Retrieve user email with fallback
+        user_email = "conectado@gmail.com"
+        try:
+            drive_service = build('drive', 'v3', credentials=creds)
+            about = drive_service.about().get(fields="user").execute()
+            user_email = about.get("user", {}).get("emailAddress", user_email)
+        except Exception as e:
+            logger.warning(f"No se pudo obtener el email del usuario de Google Drive: {e}")
 
         return {
             "token_json": json.dumps(token_info),

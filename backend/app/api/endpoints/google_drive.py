@@ -13,6 +13,9 @@ from app.schemas.google_drive import (
 from app.services.google_drive_service import GoogleDriveService
 from app.services.audit_service import log_audit
 from app.utils.formatters import format_bytes
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
