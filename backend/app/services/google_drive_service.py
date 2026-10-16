@@ -86,8 +86,37 @@ class GoogleDriveService:
 
     @staticmethod
     def get_drive_client(token_json: str):
+        from google.auth.exceptions import RefreshError
+        from google.auth.transport.requests import Request
         token_data = json.loads(token_json)
         creds = Credentials.from_authorized_user_info(token_data, scopes=SCOPES)
+        if creds.expired or not creds.valid:
+            try:
+                creds.refresh(Request())
+            except RefreshError as re:
+                if "invalid_grant" in str(re).lower():
+                    msg = (
+                        "El token de acceso de Google Drive ha expirado o fue revocado por Google. "
+                        "Causa: La aplicación en Google Cloud Console está en modo 'Prueba' (Testing), cuyos tokens vencen a los 7 días. "
+                        "Solución: 1) Reconecte la cuenta en Configuración > Google Drive. "
+                        "2) En Google Cloud Console, pase la pantalla de consentimiento a 'En producción' (Publish App)."
+                    )
+                    logger.error(msg)
+                    try:
+                        from app.services.alert_service import AlertService
+                        AlertService.send_alert(
+                            title="🚨 ERROR CRÍTICO: Google Drive Desconectado",
+                            message=msg,
+                            severity="ERROR",
+                            details={
+                                "Error": "invalid_grant (Token caducado tras 7 días)",
+                                "Acción Requerida": "Reconectar Google Drive en el panel"
+                            }
+                        )
+                    except Exception:
+                        pass
+                    raise RuntimeError(msg) from re
+                raise
         return build('drive', 'v3', credentials=creds, cache_discovery=False)
 
     @classmethod
@@ -455,6 +484,13 @@ class GoogleDriveService:
                 else:
                     raise RuntimeError(f"Error iniciando sesión de subida en Google Drive: {init_resp.status_code} - {init_resp.text}")
             except Exception as e:
+                if "invalid_grant" in str(e).lower():
+                    msg = (
+                        "El token de acceso de Google Drive ha expirado o fue revocado por Google (límite de 7 días del modo 'Prueba'). "
+                        "Por favor reconecte su cuenta en Configuración > Google Drive y cambie el estado de la app a 'En producción' en Google Cloud Console."
+                    )
+                    logger.error(f"Fallo de autorización Google Drive: {msg}")
+                    raise RuntimeError(msg) from e
                 init_retries += 1
                 if init_retries > max_init_retries:
                     logger.error(f"Fallo definitivo iniciando sesión de subida en Google Drive: {e}")
@@ -508,6 +544,13 @@ class GoogleDriveService:
                         else:
                             raise RuntimeError(f"Fallo en bloque intermedio de Google Drive ({resp.status_code}): {resp.text}")
                 except Exception as e:
+                    if "invalid_grant" in str(e).lower():
+                        msg = (
+                            "El token de Google Drive ha expirado o fue revocado por Google (límite de 7 días del modo 'Prueba'). "
+                            "Por favor reconecte su cuenta en Configuración > Google Drive y pase la app a 'En producción' en Google Cloud Console."
+                        )
+                        logger.error(f"Fallo de autorización Google Drive: {msg}")
+                        raise RuntimeError(msg) from e
                     retries += 1
                     if retries > max_retries:
                         logger.error(f"Error definitivo subiendo bloque streaming a Google Drive: {e}")

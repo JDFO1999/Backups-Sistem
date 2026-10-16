@@ -31,6 +31,33 @@ def get_drive_status(
             last_synced_at=None
         )
 
+    # Validate whether refresh token is still alive
+    try:
+        from google.auth.exceptions import RefreshError
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
+        import json
+
+        token_raw = decrypt_secret(account.encrypted_token_json)
+        if not token_raw:
+            return GoogleDriveStatusResponse(is_connected=False, email=account.email, root_folder_name="BACKUPS")
+        token_data = json.loads(token_raw)
+        creds = Credentials.from_authorized_user_info(token_data)
+        if creds.expired or not creds.valid:
+            creds.refresh(Request())
+    except RefreshError as re:
+        if "invalid_grant" in str(re).lower():
+            logger.warning(f"Google Drive token revoked for {account.email}: {re}")
+            return GoogleDriveStatusResponse(
+                is_connected=False,
+                email=account.email,
+                root_folder_id=account.root_folder_id,
+                root_folder_name=account.root_folder_name or "BACKUPS",
+                last_synced_at=account.last_synced_at
+            )
+    except Exception as e:
+        logger.warning(f"Error checking token validity: {e}")
+
     return GoogleDriveStatusResponse(
         is_connected=True,
         email=account.email,
