@@ -161,6 +161,23 @@ export const GoogleDrivePage: React.FC = () => {
           </div>
         </div>
 
+        {!status?.is_connected && (
+          <div className="mt-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <p className="font-bold text-amber-200">⚠️ Se requiere reconectar Google Drive</p>
+              <p className="text-slate-300 mt-0.5">El token ha expirado (límite de 7 días del modo 'Prueba' de Google). Haz clic en el botón para renovarlo al instante.</p>
+            </div>
+            <button
+              onClick={handleConnect}
+              disabled={connecting}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-md transition-all flex items-center gap-2 flex-shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{connecting ? 'Conectando...' : 'Reconectar Google Drive Ahora'}</span>
+            </button>
+          </div>
+        )}
+
         {status?.is_connected && (
           <div className="mt-6 pt-6 border-t border-slate-800 space-y-4">
             <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
