@@ -536,13 +536,14 @@ class GoogleDriveService:
                 time.sleep(sleep_s)
 
         # Google Drive requires chunks to be multiples of 256 KiB (262,144 bytes)
-        # 32 MiB = 33,554,432 bytes (128 * 256 KiB) - 4x larger chunks for maximum transmission throughput
-        CHUNK_SIZE = 32 * 1024 * 1024
+        # 528 MiB = 553,648,128 bytes (2112 * 256 KiB) - massive chunks for maximum transmission throughput
+        CHUNK_SIZE = 528 * 1024 * 1024
         # Level 1 (fastest compression) is ~3-4x faster on CPU while retaining ~90% compression ratio
         compressor = zlib.compressobj(level=1, wbits=31) if compress else None
 
         buffer = bytearray()
         total_compressed_sent = 0
+        scheduled_compressed_bytes = 0
         total_raw_read = 0
         sha256 = hashlib.sha256()
 
@@ -550,6 +551,14 @@ class GoogleDriveService:
         http_session = requests.Session()
         adapter = requests.adapters.HTTPAdapter(pool_connections=5, pool_maxsize=10, max_retries=3)
         http_session.mount("https://", adapter)
+
+        # Asynchronous Double-Buffering Queue:
+        # Allows reading & compressing the next 528MB block in RAM while the current 528MB block is uploading over HTTP.
+        # maxsize=2 limits RAM usage to at most ~1.05 GB (1 uploading + 1 pending in queue).
+        import queue
+        import threading
+        upload_queue = queue.Queue(maxsize=2)
+        uploader_result = {"resp": None, "error": None}
 
         def _send_chunk_with_retry(chunk_bytes: bytes, content_range_str: str, is_final: bool = False):
             retries = 0
@@ -566,7 +575,8 @@ class GoogleDriveService:
                         "Content-Range": content_range_str,
                         "Content-Length": str(len(chunk_bytes))
                     }
-                    resp = http_session.put(session_url, headers=h, data=chunk_bytes, timeout=180)
+                    # Extended timeout to 600 seconds (10 min) for 528MB chunk transfer
+                    resp = http_session.put(session_url, headers=h, data=chunk_bytes, timeout=600)
                     if is_final:
                         if resp.status_code in [200, 201]:
                             return resp
@@ -595,60 +605,114 @@ class GoogleDriveService:
                     logger.warning(f"Error transitorio en stream de Google Drive ({e}). Reintentando {retries}/{max_retries} en {sleep_s}s...")
                     time.sleep(sleep_s)
 
-        while True:
-            raw_chunk = stream_reader.read(1024 * 1024 * 2)
-            if not raw_chunk:
-                break
-            total_raw_read += len(raw_chunk)
+        def _uploader_worker():
+            nonlocal total_compressed_sent
+            try:
+                while True:
+                    item = upload_queue.get()
+                    if item is None:
+                        break
+                    chunk_bytes, content_range_str, is_final = item
+                    resp = _send_chunk_with_retry(chunk_bytes, content_range_str, is_final=is_final)
+                    total_compressed_sent += len(chunk_bytes)
+                    if progress_callback:
+                        progress_callback(total_raw_read, total_compressed_sent)
+                    upload_queue.task_done()
+                    if is_final:
+                        uploader_result["resp"] = resp
+                        break
+            except Exception as ex:
+                logger.error(f"Error en worker asíncrono de subida a Google Drive: {ex}")
+                uploader_result["error"] = ex
+                upload_queue.task_done()
 
+        # Start background uploader consumer thread
+        uploader_thread = threading.Thread(target=_uploader_worker, daemon=True)
+        uploader_thread.start()
+
+        try:
+            last_progress_time = 0.0
+            while True:
+                if uploader_result["error"]:
+                    raise uploader_result["error"]
+
+                raw_chunk = stream_reader.read(1024 * 1024 * 4)  # 4MB read chunks
+                if not raw_chunk:
+                    break
+                total_raw_read += len(raw_chunk)
+
+                # Periodic progress notification during read/compress so user sees continuous progress
+                now_t = time.time()
+                if now_t - last_progress_time >= 2.0:
+                    last_progress_time = now_t
+                    if progress_callback:
+                        progress_callback(total_raw_read, total_compressed_sent)
+
+                if compressor:
+                    out = compressor.compress(raw_chunk)
+                else:
+                    out = raw_chunk
+
+                if out:
+                    buffer.extend(out)
+                    sha256.update(out)
+
+                while len(buffer) >= CHUNK_SIZE:
+                    if uploader_result["error"]:
+                        raise uploader_result["error"]
+
+                    chunk_to_send = bytes(buffer[:CHUNK_SIZE])
+                    del buffer[:CHUNK_SIZE]
+
+                    start_b = scheduled_compressed_bytes
+                    end_b = start_b + len(chunk_to_send) - 1
+                    cr = f"bytes {start_b}-{end_b}/*"
+                    scheduled_compressed_bytes += len(chunk_to_send)
+
+                    upload_queue.put((chunk_to_send, cr, False))
+
+            # Flush compressor at EOF
             if compressor:
-                out = compressor.compress(raw_chunk)
+                tail = compressor.flush()
+                if tail:
+                    buffer.extend(tail)
+                    sha256.update(tail)
+
+            # Send final chunk
+            final_total = scheduled_compressed_bytes + len(buffer)
+            if len(buffer) > 0:
+                start_b = scheduled_compressed_bytes
+                end_b = final_total - 1
+                cr = f"bytes {start_b}-{end_b}/{final_total}"
+                upload_queue.put((bytes(buffer), cr, True))
             else:
-                out = raw_chunk
+                cr = f"bytes */{final_total}"
+                upload_queue.put((b"", cr, True))
 
-            if out:
-                buffer.extend(out)
-                sha256.update(out)
+            # Wait for uploader worker thread to finish
+            uploader_thread.join()
 
-            while len(buffer) >= CHUNK_SIZE:
-                chunk_to_send = bytes(buffer[:CHUNK_SIZE])
-                del buffer[:CHUNK_SIZE]
+            if uploader_result["error"]:
+                raise uploader_result["error"]
 
-                start_b = total_compressed_sent
-                end_b = start_b + len(chunk_to_send) - 1
-                cr = f"bytes {start_b}-{end_b}/*"
+            final_resp = uploader_result["resp"]
+            if not final_resp:
+                raise RuntimeError("No se recibió respuesta final del servidor de Google Drive.")
 
-                _send_chunk_with_retry(chunk_to_send, cr, is_final=False)
-                total_compressed_sent += len(chunk_to_send)
+            drive_file_id = final_resp.json().get("id")
 
-                if progress_callback:
-                    progress_callback(total_raw_read, total_compressed_sent)
-
-        # Flush compressor at EOF
-        if compressor:
-            tail = compressor.flush()
-            if tail:
-                buffer.extend(tail)
-                sha256.update(tail)
-
-        # Send final chunk
-        final_total = total_compressed_sent + len(buffer)
-        if len(buffer) > 0:
-            start_b = total_compressed_sent
-            end_b = final_total - 1
-            cr = f"bytes {start_b}-{end_b}/{final_total}"
-            final_resp = _send_chunk_with_retry(bytes(buffer), cr, is_final=True)
-        else:
-            cr = f"bytes */{final_total}"
-            final_resp = _send_chunk_with_retry(b"", cr, is_final=True)
-
-        drive_file_id = final_resp.json().get("id")
-
-        return {
-            "id": drive_file_id,
-            "raw_size_bytes": total_raw_read,
-            "compressed_size_bytes": final_total,
-            "sha256_checksum": sha256.hexdigest()
-        }
+            return {
+                "id": drive_file_id,
+                "raw_size_bytes": total_raw_read,
+                "compressed_size_bytes": final_total,
+                "sha256_checksum": sha256.hexdigest()
+            }
+        except Exception:
+            # Signal worker to stop if producer encounters error
+            try:
+                upload_queue.put(None)
+            except Exception:
+                pass
+            raise
 
 

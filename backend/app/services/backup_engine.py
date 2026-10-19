@@ -215,13 +215,19 @@ if ($LASTEXITCODE -eq 0 -and (Test-Path $bak)) {{
             def stream_progress(raw_read: int, comp_sent: int):
                 raw_mb = raw_read // (1024 * 1024)
                 comp_mb = comp_sent // (1024 * 1024)
+                raw_gb = round(raw_read / (1024 ** 3), 2)
+                comp_gb = round(comp_sent / (1024 ** 3), 2)
                 if progress_callback:
                     db_size = database.size_bytes or 0
                     if db_size > 0:
                         pct = min(int(20 + (raw_read / db_size) * 75), 95)
                     else:
                         pct = 50
-                    progress_callback(pct, f"Transmitiendo a Google Drive en tiempo real... ({raw_mb} MB leídos, {comp_mb} MB subidos)")
+                    if raw_gb >= 1.0 or comp_gb >= 1.0:
+                        msg = f"Transmitiendo en bloques de 528MB... ({raw_gb} GB leídos, {comp_gb} GB subidos)"
+                    else:
+                        msg = f"Transmitiendo en bloques de 528MB... ({raw_mb} MB leídos, {comp_mb} MB subidos)"
+                    progress_callback(pct, msg)
 
             upload_res = GoogleDriveService.upload_stream_resumable(
                 token_json=drive_token_json,

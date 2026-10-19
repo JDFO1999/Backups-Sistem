@@ -97,8 +97,8 @@ class FolderBackupEngine:
             branch_name=branch.name
         )
 
-        # High-performance async queue buffer replacing os.pipe
-        queue_stream = ChunkedQueueStream(maxsize=32)
+        # High-performance async queue buffer replacing os.pipe (expanded to 64 chunks)
+        queue_stream = ChunkedQueueStream(maxsize=64)
 
         producer_stats = {
             "files_added": 0,
@@ -171,8 +171,14 @@ class FolderBackupEngine:
         def stream_progress(raw_read: int, comp_sent: int):
             raw_mb = raw_read // (1024 * 1024)
             comp_mb = comp_sent // (1024 * 1024)
+            raw_gb = round(raw_read / (1024 ** 3), 2)
+            comp_gb = round(comp_sent / (1024 ** 3), 2)
             if progress_callback:
-                progress_callback(50, f"Transmitiendo a Google Drive a alta velocidad... ({raw_mb} MB leídos, {comp_mb} MB subidos)")
+                if raw_gb >= 1.0 or comp_gb >= 1.0:
+                    txt = f"Transmitiendo en bloques de 528MB... ({raw_gb} GB leídos, {comp_gb} GB subidos)"
+                else:
+                    txt = f"Transmitiendo en bloques de 528MB... ({raw_mb} MB leídos, {comp_mb} MB subidos)"
+                progress_callback(50, txt)
 
         if progress_callback:
             progress_callback(20, f"Iniciando lectura acelerada y transmisión de {branch.code}...")
