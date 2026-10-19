@@ -2,6 +2,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from app.core.dns_patch import apply_dns_patch
+
+# Active resilient DNS resolution to prevent getaddrinfo failures on corporate networks
+apply_dns_patch()
+
 from app.core.config import settings
 from app.core.init_db import init_db
 from app.api.api_v1 import api_router

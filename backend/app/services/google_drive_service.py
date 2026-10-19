@@ -112,32 +112,47 @@ class GoogleDriveService:
         token_data = json.loads(token_json)
         creds = Credentials.from_authorized_user_info(token_data, scopes=SCOPES)
         if creds.expired or not creds.valid:
-            try:
-                creds.refresh(Request())
-            except RefreshError as re:
-                if "invalid_grant" in str(re).lower():
-                    msg = (
-                        "El token de acceso de Google Drive ha expirado o fue revocado por Google. "
-                        "Causa: La aplicación en Google Cloud Console está en modo 'Prueba' (Testing), cuyos tokens vencen a los 7 días. "
-                        "Solución: 1) Reconecte la cuenta en Configuración > Google Drive. "
-                        "2) En Google Cloud Console, pase la pantalla de consentimiento a 'En producción' (Publish App)."
-                    )
-                    logger.error(msg)
-                    try:
-                        from app.services.alert_service import AlertService
-                        AlertService.send_alert(
-                            title="🚨 ERROR CRÍTICO: Google Drive Desconectado",
-                            message=msg,
-                            severity="ERROR",
-                            details={
-                                "Error": "invalid_grant (Token caducado tras 7 días)",
-                                "Acción Requerida": "Reconectar Google Drive en el panel"
-                            }
+            import time
+            max_attempts = 4
+            last_conn_error = None
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    creds.refresh(Request())
+                    break
+                except RefreshError as re:
+                    if "invalid_grant" in str(re).lower():
+                        msg = (
+                            "El token de acceso de Google Drive ha expirado o fue revocado por Google. "
+                            "Causa: La aplicación en Google Cloud Console está en modo 'Prueba' (Testing), cuyos tokens vencen a los 7 días. "
+                            "Solución: 1) Reconecte la cuenta en Configuración > Google Drive. "
+                            "2) En Google Cloud Console, pase la pantalla de consentimiento a 'En producción' (Publish App)."
                         )
-                    except Exception:
-                        pass
-                    raise RuntimeError(msg) from re
-                raise
+                        logger.error(msg)
+                        try:
+                            from app.services.alert_service import AlertService
+                            AlertService.send_alert(
+                                title="🚨 ERROR CRÍTICO: Google Drive Desconectado",
+                                message=msg,
+                                severity="ERROR",
+                                details={
+                                    "Error": "invalid_grant (Token caducado tras 7 días)",
+                                    "Acción Requerida": "Reconectar Google Drive en el panel"
+                                }
+                            )
+                        except Exception:
+                            pass
+                        raise RuntimeError(msg) from re
+                    raise
+                except Exception as conn_err:
+                    last_conn_error = conn_err
+                    logger.warning(f"Error al refrescar credenciales de Google Drive (intento {attempt}/{max_attempts}): {conn_err}")
+                    if attempt < max_attempts:
+                        time.sleep(1.5 * attempt)
+                    else:
+                        raise RuntimeError(
+                            f"Fallo de conexión o DNS al contactar oauth2.googleapis.com tras {max_attempts} intentos: {last_conn_error}"
+                        ) from last_conn_error
+
         return build('drive', 'v3', credentials=creds, cache_discovery=False)
 
     @classmethod
