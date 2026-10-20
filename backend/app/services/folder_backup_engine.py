@@ -123,10 +123,10 @@ class FolderBackupEngine:
                     if not subfolders or len(subfolders) == 0:
                         excludes_set.update({'datoshis', 'datahis', 'desinstalar', 'bmp', 'ico', 'icons', 'imagenes', 'jpg', 'tmp', 'log', 'logerr'})
 
-                    # Skip non-essential files, binaries, temporary and backup files that waste bandwidth
+                    # Skip temporary, lock, and residual backup files that waste bandwidth (allow .exe)
                     skip_extensions = (
                         '.tmp', '.temp', '.~df', '.~db', 'thumbs.db', 'desktop.ini',
-                        '.bak', '.old', '.log', '.exe', '.dll', '.ocx'
+                        '.bak', '.old', '.log'
                     )
 
                     def scan_and_add(dir_path: str, arc_prefix: str):
