@@ -106,7 +106,10 @@ def create_schedule(
             target_branch_ids = sched_in.target_branch_ids
 
     target_branch_ids_json = json.dumps(sched_in.target_branch_ids) if sched_in.target_branch_ids else None
-    target_subfolders_json = json.dumps(sched_in.target_subfolders) if sched_in.target_subfolders else None
+    if schedule_type == "FOLDER" and (sched_in.folder_scope or "critical") == "critical" and not sched_in.target_subfolders:
+        target_subfolders_json = json.dumps(["Datos", "Cierre_POS", "Informes", "Formularios", "Data", "DataSQL"])
+    else:
+        target_subfolders_json = json.dumps(sched_in.target_subfolders) if sched_in.target_subfolders else None
 
     sched = BackupSchedule(
         name=sched_in.name,

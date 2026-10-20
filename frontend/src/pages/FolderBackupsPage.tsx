@@ -167,7 +167,7 @@ export const FolderBackupsPage: React.FC = () => {
       setStartingJob(true);
       let subfoldersToSend: string[] | undefined = undefined;
       if (folderScope === 'critical') {
-        subfoldersToSend = ['Data', 'Datos', 'DataSQL', 'Formularios'];
+        subfoldersToSend = ['Datos', 'Cierre_POS', 'Informes', 'Formularios', 'Data', 'DataSQL'];
       } else if (folderScope === 'custom') {
         subfoldersToSend = customSubfolders;
       }
