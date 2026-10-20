@@ -119,7 +119,15 @@ class FolderBackupEngine:
                         target_dirs.append((unc_path, ""))
 
                     excludes_set = set(x.lower() for x in (exclude_subfolders or []))
-                    skip_extensions = ('.tmp', '.temp', '.~df', '.~db', 'thumbs.db', 'desktop.ini')
+                    # Automatically exclude bulky static or historical directories if full folder backup is requested
+                    if not subfolders or len(subfolders) == 0:
+                        excludes_set.update({'datoshis', 'datahis', 'desinstalar', 'bmp', 'ico', 'icons', 'imagenes', 'jpg', 'tmp', 'log', 'logerr'})
+
+                    # Skip non-essential files, binaries, temporary and backup files that waste bandwidth
+                    skip_extensions = (
+                        '.tmp', '.temp', '.~df', '.~db', 'thumbs.db', 'desktop.ini',
+                        '.bak', '.old', '.log', '.exe', '.dll', '.ocx'
+                    )
 
                     def scan_and_add(dir_path: str, arc_prefix: str):
                         try:
@@ -127,7 +135,7 @@ class FolderBackupEngine:
                                 for entry in it:
                                     try:
                                         name_lower = entry.name.lower()
-                                        if excludes_set and name_lower in excludes_set:
+                                        if name_lower in excludes_set:
                                             continue
                                         if name_lower.endswith(skip_extensions):
                                             continue

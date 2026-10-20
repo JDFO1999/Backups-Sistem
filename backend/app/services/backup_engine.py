@@ -234,7 +234,7 @@ if ($LASTEXITCODE -eq 0 -and (Test-Path $bak)) {{
                 stream_reader=stdout,
                 destination_folder_id=target_folder_id,
                 remote_filename=filename,
-                compress=True,
+                compress=(database.engine != "SQLSERVER"),
                 progress_callback=stream_progress
             )
 
