@@ -536,8 +536,8 @@ class GoogleDriveService:
                 time.sleep(sleep_s)
 
         # Google Drive requires chunks to be multiples of 256 KiB (262,144 bytes)
-        # 528 MiB = 553,648,128 bytes (2112 * 256 KiB) - massive chunks for maximum transmission throughput
-        CHUNK_SIZE = 528 * 1024 * 1024
+        # 16 MiB = 16,777,216 bytes (64 * 256 KiB) - perfectly sized for network stability & rapid commits without timeouts
+        CHUNK_SIZE = 16 * 1024 * 1024
         # Level 1 (fastest compression) is ~3-4x faster on CPU while retaining ~90% compression ratio
         compressor = zlib.compressobj(level=1, wbits=31) if compress else None
 
@@ -553,8 +553,8 @@ class GoogleDriveService:
         http_session.mount("https://", adapter)
 
         # Asynchronous Double-Buffering Queue:
-        # Allows reading & compressing the next 528MB block in RAM while the current 528MB block is uploading over HTTP.
-        # maxsize=2 limits RAM usage to at most ~1.05 GB (1 uploading + 1 pending in queue).
+        # Allows reading & compressing the next 16MB block in RAM while the current 16MB block is uploading over HTTP.
+        # maxsize=2 limits RAM usage to at most ~32 MB (1 uploading + 1 pending in queue).
         import queue
         import threading
         upload_queue = queue.Queue(maxsize=2)
@@ -575,8 +575,8 @@ class GoogleDriveService:
                         "Content-Range": content_range_str,
                         "Content-Length": str(len(chunk_bytes))
                     }
-                    # Extended timeout to 600 seconds (10 min) for 528MB chunk transfer
-                    resp = http_session.put(session_url, headers=h, data=chunk_bytes, timeout=600)
+                    # Timeout of 180 seconds is generous for a 16MB chunk even on 1Mbps connections
+                    resp = http_session.put(session_url, headers=h, data=chunk_bytes, timeout=180)
                     if is_final:
                         if resp.status_code in [200, 201]:
                             return resp

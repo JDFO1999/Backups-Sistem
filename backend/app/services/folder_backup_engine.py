@@ -183,10 +183,13 @@ class FolderBackupEngine:
             comp_gb = round(comp_sent / (1024 ** 3), 2)
             if progress_callback:
                 if raw_gb >= 1.0 or comp_gb >= 1.0:
-                    txt = f"Transmitiendo en bloques de 528MB... ({raw_gb} GB leídos, {comp_gb} GB subidos)"
+                    txt = f"Transmitiendo en bloques de 16MB... ({raw_gb} GB leídos, {comp_gb} GB subidos)"
                 else:
-                    txt = f"Transmitiendo en bloques de 528MB... ({raw_mb} MB leídos, {comp_mb} MB subidos)"
-                progress_callback(50, txt)
+                    txt = f"Transmitiendo en bloques de 16MB... ({raw_mb} MB leídos, {comp_mb} MB subidos)"
+                try:
+                    progress_callback(50, txt, raw_mb, comp_mb)
+                except TypeError:
+                    progress_callback(50, txt)
 
         if progress_callback:
             progress_callback(20, f"Iniciando lectura acelerada y transmisión de {branch.code}...")
@@ -311,7 +314,8 @@ def execute_folder_backup_job_logic(job_id: int) -> None:
 
         db_lock = threading.Lock()
         active_branches_lock = threading.Lock()
-        active_branch_codes = []
+        active_branch_stats = {}  # branch.code -> {"raw_mb": int, "comp_mb": int}
+        last_progress_tick = [0.0]
 
         def update_job_progress():
             with db_lock:
@@ -328,8 +332,21 @@ def execute_folder_backup_job_logic(job_id: int) -> None:
                         base_pct = int((len(all_c) / total_branches) * 90) if total_branches > 0 else 5
                         j.progress_percent = min(max(base_pct, 5), 95)
                         with active_branches_lock:
-                            active_str = ", ".join(active_branch_codes) if active_branch_codes else "Finalizando..."
-                        j.current_step = f"Respaldando en paralelo (hasta 3 tiendas) [{j.completed_branches}/{total_branches} listas] • En curso: {active_str}"
+                            if active_branch_stats:
+                                parts = []
+                                for code, st in active_branch_stats.items():
+                                    comp = st.get("comp_mb", 0)
+                                    raw = st.get("raw_mb", 0)
+                                    if comp > 0:
+                                        parts.append(f"{code} ({comp}MB)")
+                                    elif raw > 0:
+                                        parts.append(f"{code} (leyendo {raw}MB)")
+                                    else:
+                                        parts.append(code)
+                                active_str = ", ".join(parts)
+                            else:
+                                active_str = "Finalizando..."
+                        j.current_step = f"Respaldando en paralelo (hasta 3 tiendas) [{j.completed_branches}/{total_branches} listas] • {active_str}"
                         db_prog.commit()
                     db_prog.close()
                 except Exception as ex:
@@ -337,7 +354,7 @@ def execute_folder_backup_job_logic(job_id: int) -> None:
 
         def process_branch(branch: Branch):
             with active_branches_lock:
-                active_branch_codes.append(branch.code)
+                active_branch_stats[branch.code] = {"raw_mb": 0, "comp_mb": 0}
             update_job_progress()
 
             max_retries = 2
@@ -349,8 +366,13 @@ def execute_folder_backup_job_logic(job_id: int) -> None:
                     if attempt > 0:
                         logger.info(f"Reintento {attempt}/{max_retries} para {branch.code} tras espera de red...")
 
-                    def sub_progress(sub_pct: int, msg: str):
-                        pass
+                    def sub_progress(sub_pct: int, msg: str, raw_mb: int = 0, comp_mb: int = 0):
+                        with active_branches_lock:
+                            active_branch_stats[branch.code] = {"raw_mb": raw_mb, "comp_mb": comp_mb}
+                        now_t = time.time()
+                        if now_t - last_progress_tick[0] >= 2.0:
+                            last_progress_tick[0] = now_t
+                            update_job_progress()
 
                     res = FolderBackupEngine.run_branch_folder_backup(
                         branch=branch,
@@ -420,8 +442,7 @@ def execute_folder_backup_job_logic(job_id: int) -> None:
                         logger.error(f"Fallo definitivo tras {max_retries} reintentos en {branch.code}: {be}")
 
             with active_branches_lock:
-                if branch.code in active_branch_codes:
-                    active_branch_codes.remove(branch.code)
+                active_branch_stats.pop(branch.code, None)
 
             update_job_progress()
             if last_error:
