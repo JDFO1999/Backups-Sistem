@@ -112,6 +112,9 @@ def execute_backup_job_logic(job_id: int):
         # Checkpoints: detect already completed databases for this job
         completed_file_map = {bf.database_id: bf for bf in job.backup_files if bf.status == "COMPLETED"}
 
+        progress_lock = threading.Lock()
+        last_progress_time = [0.0]
+
         for idx, database in enumerate(databases_to_backup):
             db_num = idx + 1
             base_pct = int(((idx) / total_dbs) * 90)
@@ -125,13 +128,27 @@ def execute_backup_job_logic(job_id: int):
                 continue
 
             def sub_progress(sub_pct, sub_step):
-
                 # Scale sub_pct into overall job percentage
                 overall = int(base_pct + (sub_pct / 100.0) * (90 / total_dbs))
-                job.progress_percent = overall
-                job.current_step = f"[{db_num}/{total_dbs}] {database.name}: {sub_step}"
-                db.commit()
-                notify_progress(job_id, overall, job.current_step, {
+                step_str = f"[{db_num}/{total_dbs}] {database.name}: {sub_step}"
+
+                with progress_lock:
+                    now_t = time.time()
+                    # Throttle database write to avoid transaction collisions across async threads
+                    if now_t - last_progress_time[0] >= 1.5 or sub_pct >= 95 or sub_pct <= 20:
+                        last_progress_time[0] = now_t
+                        try:
+                            db_prog = SessionLocal()
+                            j = db_prog.query(BackupJob).filter(BackupJob.id == job_id).first()
+                            if j:
+                                j.progress_percent = overall
+                                j.current_step = step_str
+                                db_prog.commit()
+                            db_prog.close()
+                        except Exception as pe:
+                            logger.debug(f"Error actualizando progreso en DB: {pe}")
+
+                notify_progress(job_id, overall, step_str, {
                     "database": database.name,
                     "db_index": db_num,
                     "total_dbs": total_dbs
@@ -210,24 +227,35 @@ def execute_backup_job_logic(job_id: int):
 
     except Exception as e:
         logger.error(f"Fallo en BackupJob {job_id}: {str(e)}", exc_info=True)
-        if job:
-            job.status = "FAILED"
-            job.error_message = str(e)
-            job.finished_at = datetime.now(timezone.utc)
-            job.current_step = f"Error: {str(e)}"
-            db.commit()
-            notify_progress(job_id, job.progress_percent, f"Fallo: {str(e)}")
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        try:
+            db_err = SessionLocal()
+            j_err = db_err.query(BackupJob).filter(BackupJob.id == job_id).first()
+            if j_err:
+                j_err.status = "FAILED"
+                j_err.error_message = str(e)
+                j_err.finished_at = datetime.now(timezone.utc)
+                j_err.current_step = f"Error: {str(e)}"
+                db_err.commit()
+            db_err.close()
+        except Exception as commit_err:
+            logger.error(f"Error registrando estado FAILED en DB: {commit_err}")
 
-            try:
-                from app.services.alert_service import AlertService
-                AlertService.send_alert(
-                    title=f"Fallo en Backup de Base de Datos #{job.id}",
-                    message=f"Servidor: {job.server.name if job.server else 'N/A'}. Error: {e}",
-                    severity="ERROR",
-                    details={"Job ID": job.id, "Error": str(e)[:200]}
-                )
-            except Exception:
-                pass
+        notify_progress(job_id, job.progress_percent if job else 0, f"Fallo: {str(e)}")
+
+        try:
+            from app.services.alert_service import AlertService
+            AlertService.send_alert(
+                title=f"Fallo en Backup de Base de Datos #{job.id}",
+                message=f"Servidor: {job.server.name if job.server else 'N/A'}. Error: {e}",
+                severity="ERROR",
+                details={"Job ID": job.id, "Error": str(e)[:200]}
+            )
+        except Exception:
+            pass
     finally:
         db.close()
 

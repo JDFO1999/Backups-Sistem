@@ -224,9 +224,9 @@ if ($LASTEXITCODE -eq 0 -and (Test-Path $bak)) {{
                     else:
                         pct = 50
                     if raw_gb >= 1.0 or comp_gb >= 1.0:
-                        msg = f"Transmitiendo en bloques de 528MB... ({raw_gb} GB leídos, {comp_gb} GB subidos)"
+                        msg = f"Transmitiendo en bloques de 16MB... ({raw_gb} GB leídos, {comp_gb} GB subidos)"
                     else:
-                        msg = f"Transmitiendo en bloques de 528MB... ({raw_mb} MB leídos, {comp_mb} MB subidos)"
+                        msg = f"Transmitiendo en bloques de 16MB... ({raw_mb} MB leídos, {comp_mb} MB subidos)"
                     progress_callback(pct, msg)
 
             upload_res = GoogleDriveService.upload_stream_resumable(
